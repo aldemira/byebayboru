@@ -1,395 +1,146 @@
-#include "SoftwareServos.h"
-#include <EEPROM.h>
+#include <Servo.h>
 
-/*
-PIN 0  -> Unused
-PIN 1  -> right eye Up-Dow
-PIN 2  -> left eye  Up-Down
-PIN 3  -> left eye  L-R
-PIN 4  -> right eye L-R
-PIN 5  -> Eye Lids (L+R)
-PIN 6  -> Mouth R
-PIN 7  -> Mouth L
-PIN 8  -> Head Up-Down
-PIN 9  -> Head L-R
-PIN 10 -> Eyebrow R
-PIN 11 -> Eyebrow L
-PIN 12 -> Ears
-PIN 13 -> LED Heart
-PIN 45 -> Eye brow up
-PIN 46 -> Mouth Centre
-*/
-int highestPin = 13;
-
-unsigned char g_message[1024];
-unsigned char g_config[256];
-
-unsigned int g_messageTop;
-unsigned int g_command;
-unsigned int g_length;
-unsigned int g_crc;
-unsigned int g_count;
-unsigned int g_channel;
-unsigned int g_value;
-long g_calc;
-unsigned char g_autoRun = 0;
-
-unsigned long g_heartBeat[20];
-
-#define ARDUINO_GET_ID 0
-#define ARDUINO_RESET 1
-#define ARDUINO_SET_OBJECT 2
-#define ARDUINO_SET_SERVO 3
-#define ARDUINO_HEARTBEAT 4
-#define ARDUINO_RELEASE_SERVO 5
-#define ARDUINO_GET_IR 6
-#define ARDUINO_GET_SONAR 7
-
-#define ARDUINO_LOAD_CONFIG 32
-#define ARDUINO_SAVE_CONFIG 33
-#define ARDUINO_SAVE_SEQUENCE 34
-
-#define SEQ_START MAX_CONFIG 
-#define SEQ_END (1024 - MAX_CONFIG)
-
-#define AUDIO_INPUT_PIN A0
-
-void initialize()
-{
-  int i;
-  for (i=0;i<highestPin;i++) g_heartBeat[i]=(long)0;
-
+/****** PIN LAYOUT ************
   
-}
+  PIN 0  -> Unused
+  PIN 1  -> right eye Up-Down
+  PIN 2  -> left eye  Up-Down
+  PIN 3  -> left eye  L-R
+  PIN 4  -> right eye L-R
+  PIN 5  -> Eye Lids (L+R)
+  PIN 6  -> Mouth R
+  PIN 7  -> Mouth L
+  PIN 8  -> Head Up-Down
+  PIN 9  -> Head L-R
+  PIN 10 -> Eyebrow R
+  PIN 11 -> Eyebrow L
+  PIN 12 -> Ears
+  PIN 13 -> LED Heart
+  PIN 45 -> Eye brow up
+  PIN 46 -> Mouth UP Down
+*/
+/***** CONFIGURABLE PARAMETERS *****/
+/**** PIN definitions as stated above ****/
+#define R_EYE_UD 1
+#define L_EYE_UD 2
+#define L_EYE_LR 3
+#define R_EYE_LR 4
+#define EYE_LIDS 5
+#define MOUTH_R 6
+#define MOUTH_L 7
+#define HEAD_UD 8
+#define HEAD_LR 9
+#define EYE_BROW_R 10
+#define EYE_BROW_L 11
+#define EARS 12
+#define EYE_BROW_UP 45
+#define MOUTH_UD 46
+/**** End Servo PIN definitions ****/
+
+/**** Audio INPUT PIN definition (Mono) ****/
+#define AUDIO_INPUT_PIN 0
+/**** End INPUT PIN definition ****/
+
+/**** Angle Definitions ****/
+#define EYE_LID_OPEN_ANGLE 20
+#define EYE_LID_CLOSE_ANGLE 70
+#define MOUTH_MIN_ANGLE 0
+#define MOUTH_MAX_ANGLE 45
+#define INITIAL_EYE_ANGLE 90
+/**** End Angle Definitions ****/
+
+/***** End Configurable Stuff *****/
+
+int audioVal;
+int outputVal;
+Servo rEyeLR;
+Servo eyeLids;
+Servo mouthR;
+Servo mouthL;
+Servo headUD;
+Servo headLR;
+Servo eyeBrowR;
+Servo eyeBrowL;
+Servo ears;
+Servo eyeBrowU;
+Servo mouthUD;
+
+int lastBlinkTime = 0;
+int lastEyeMovement = 0;
+// Globals to keep the current angle positions
+int curLEyeAngle = INITIAL_EYE_ANGLE;
+int curREyeAngle = INITIAL_EYE_ANGLE;
 
 void setup()
 {
-	Serial.begin(57600);
+  // Make random really random by reading from A2
+  randomSeed(analogRead(2));
 
-	ss_Init();
-}
-
-int readPacket()
-{
-  // get header byte
-  // 128 (bit 8) flag indicates a new g_command packet ..
-  //		that means the g_value bytes can never have 128 set!
-  // next byte is the g_command 0-8
-  // next byte is single byte data length
-  // for command >= 32 next byte is high byte data length
-  // data
-  // crc
-
-  int high;
-  int crc;
-  g_messageTop=2;
-
-  do {
-    while (Serial.available() <= 0) continue;
-    g_command = Serial.read();
-  } while ((g_command&128)==0);
-
-  g_message[0] = crc = g_command;
-  g_command^=128;
-
-  while (Serial.available() <= 0) continue;
-  g_length = g_message[1] = Serial.read();
-  crc ^= g_length;
-
-  if (g_command>=32) {
-    while (Serial.available() <= 0) continue;
-    g_message[2] = high = Serial.read();
-    g_length = g_length|(high<<7);
-    crc ^= high;
-    g_messageTop=3;
-  }
-
-  // read in entire message
-  if (g_length>0) {
-    int count = g_length;
-    while (count>0) {
-      while (Serial.available() <= 0) continue;
-      g_message[g_messageTop] = Serial.read();
-      crc ^= g_message[g_messageTop++];
-      count--;
-    }
-
-    while (Serial.available() <= 0) continue;
-    g_message[g_messageTop++] = g_crc = Serial.read();
-
-    if ((crc&127)!=(g_crc&127)) return 0;
-  }
-  return 1;
-}
-
-// sets a part in the face identified by an id instead of a pin. This 
-// allows the Arduino to chose the appropriate pin to activate and
-// scale the value according to configuration parameters. This is
-// useful for external applications that don't want to download
-// the configuration (min, max, etc) and provide scaled values.
-// Also used for saved sequences in case pins are reassigned or
-// the configuration changes. This allows the saved sequence to
-// continue to work as is without having to redownload from the
-// Fritz application.
-void setObjectPosition(int object, int val)
-{
-  int i = object*10;
-  
-  int trimVal = g_config[i] | (g_config[i+1]<<7);
-  if (trimVal > 8192) trimVal -= 16384;
-  int maxVal = g_config[i+2] | (g_config[i+3]<<7);
-  if (maxVal > 8192) maxVal -= 16384;
-  int minVal = g_config[i+4] | (g_config[i+5]<<7);
-  if (minVal > 8192) minVal -= 16384;
-
-  int pin = g_config[i+6] | (g_config[i+7]<<7);
-
-  if (pin!=0) {
-    g_calc = (((long)val+1000)* ((long)(maxVal - minVal)))/(long)2000;
-    
-    val = g_calc + trimVal + minVal;
-    if (val<-1000) val=-1000;
-    if (val>1000) val=1000;
-    if (val<minVal) val=minVal;
-    if (val>maxVal) val=maxVal;
-    ss_SetPosition(pin, val+1500);
-  }
-}
-// loads a saved sequence from eeprom and executes those movements
-void executeSavedSequence()
-{
-  // first number in eeprom is the sequence size
-  long int time = millis();
-  int startSeq = SEQ_START;
-  int len = EEPROM.read(startSeq) | (EEPROM.read(startSeq+1)<<8);
-  if ((len<0)||(len>SEQ_END)) return;
-  
-  startSeq+=2;
-  int stopSeq = startSeq + len;
-  while ((startSeq<stopSeq)&&(!Serial.available()))
-  {
-    int object = EEPROM.read(startSeq++);
-    int pos = EEPROM.read(startSeq++);
-    pos |= EEPROM.read(startSeq++)<<8;
-/*
-Serial.println(delayFor);      
-Serial.println(object);      
-Serial.println(pos);      
-Serial.println("");      
-*/  
-    if (object==255)
-    {
-      time+=pos;
-      int pauseMS = time - millis();
-      if (pauseMS>0)
-        delay(pauseMS);
-    }
-    else  
-    {
-      if (pos > 8192) pos -= 32768;
-      setObjectPosition(object, pos);
-    }
-  }
+  rEyeUD.attach(R_EYE_UD, 1000, 2000);
+  lEyeUD.attach(L_EYE_UD, 1000, 2000);
+  lEyeLR.attach(L_EYE_LR, 1000, 2000);
+  rEyeLR.attach(R_EYE_LR, 1000, 2000);
+  eyeLids.attach(EYE_LIDS, 1000, 2000);
+  mouthR.attach(MOUTH_R, 1000, 2000);
+  mouthL.attach(MOUTH_L, 1000, 2000);
+  headUD.attach(HEAD_UD, 1000, 2000);
+  headLR.attach(HEAD_LR, 1000, 2000);
+  eyeBrowR.attach(EYE_BROW_R, 1000, 2000);
+  eyeBrowL.attach(EYE_BROW_L, 1000, 2000);
+  ears.attach(EARS, 1000, 2000);
+  eyeBrowU.attach(EYE_BROW_UD, 1000, 2000);
+  mouthUD.attach(MOUTH_UD, 1000, 2000);
+  // XXX Error checks?
 }
 
 void loop()
 {
- 
-	//ss_SetPosition(4, 1500);
-	//return;
 
-	// Read audio, and map it to the mouth
-	audioValue = analogRead(AUDIO_INPUT_PIN);
-	outputValue = map(audioValue, 0, 1023, 0, 255);
-	setObjectPosition(0,outputValue);
+  talkWithAnalogInput();
 
+  // XXX What will be the assumed initial servo angles?
+  nowTime = millis();
+  if(nowTime - lastBlinkTime >= 5000)
+        blinkMeEyes();
 
-  // check if we should run the saved sequence or wait for PC response
-  if (g_autoRun==0) {
-    while (millis()<5000) {
-      if (Serial.available()) {
-        g_autoRun = 1;
-        break;
-      }  
-    }
-    
-    if (g_autoRun==0) {
-      while (!Serial.available()) {
-        initialize();
-        executeSavedSequence();
-      }
-      
-      g_autoRun=1;
-    }
-  }
+  if(nowTime - lastEyeMovement >= 500 + random(100))
+        moveEyesSlightly();
 
-  int crc;
-  int val;
-  int i,j;
-  int trimVal, maxVal, minVal, pin;
+  // Wait 150ms between each analog sample
+  delay(150);
+}
 
-  while (Serial.available()>0) {
-    if (readPacket()==0) 
-      return;
+// Read audio, and map it to the mouth
+// to give a talking impression
+void talkWithAnalogInput()
+{
+  audioVal = analogRead(AUDIO_INPUT_PIN);
+  outputVal = map(audioVal, 0, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
+  mouthUD.write(outputVal);
+}
 
-    switch (g_command) {
-      // init
-      case ARDUINO_GET_ID:
-        initialize();
-        Serial.print("ARDU004");
-      break;
-      // servo
-      case  ARDUINO_RELEASE_SERVO:
-        g_channel = g_message[2];
-        ss_SetPosition(g_channel, 0);
-      break;
-      case  ARDUINO_SET_SERVO:
-        g_channel = g_message[2];
-        g_value = g_message[3] | (g_message[4]<<7);
+// Eye blink operation
+void blinkMeEyes()
+{
+        eyelids.write(eyeLidCloseAngle);
+        delay(20);
+        eyelids.write(eyeLidOpenAngle);
+}
 
-        ss_SetPosition(g_channel, g_value);
+// Move eyes slightly to left and right
+void moveEyesSlightly()
+{
+  int curRndNum = random(-5,0);
 
-        g_heartBeat[g_channel]=millis();
+  curLEyeAngle = curLEyeAngle - curRndNum;
+  curREyeAngle = curREyeAngle - curRndNum;
+  lEyeLR.write(curLEyeAngle);
+  rEyeLR.write(curREyeAngle);
 
-      break;
-      case ARDUINO_SET_OBJECT:
-        // sets the value of a specific part of the face. This uses configuration
-        // memory to determine the pin and appropriate scaled min/max values.
-        g_channel = g_message[2];
-        val = g_message[3] | (g_message[4]<<7);
-        
-        if (val > 8192) val -= 16384;
-        setObjectPosition(g_channel, val);
-        
-        g_heartBeat[pin]=millis();
-      break;
-      case ARDUINO_HEARTBEAT:
-      break;
-      case ARDUINO_LOAD_CONFIG:
-        g_count = g_message[3]*2;
+  delay(100);
 
-        g_message[0]=g_command|128;
-        g_message[1]=g_count+1;
-        g_message[2]=0;
-
-        crc=g_message[0]^g_message[1]^g_message[2];
-
-	      for (j=3,i=0;i<g_count;i+=2,j+=2) {
-	        g_message[j] = g_config[i];
-	        g_message[j+1] = g_config[i+1];
-	        crc=crc^g_message[j]^g_message[j+1];
-	      }
-	      g_message[j]=crc&127;
-
-	      for (i=3;i<j;i+=10) {
-           trimVal = g_message[i] | (g_message[i+1]<<7);
-           if (trimVal > 8192) trimVal -= 16384;
-           maxVal = g_message[i+2] | (g_message[i+3]<<7);
-           if (maxVal > 8192) maxVal -= 16384;
-           minVal = g_message[i+4] | (g_message[i+5]<<7);
-           if (minVal > 8192) minVal -= 16384;
-           pin = g_message[i+6] | (g_message[i+7]<<7);
-
-          if (pin!=0) {
-            val = ((maxVal-minVal)/2)+minVal+trimVal;
-            if (val<-1000) val=-1000;
-            if (val>1000) val=1000;
-            if (val<minVal) val=minVal;
-            if (val>maxVal) val=maxVal;
-            ss_SetPosition(pin, val+1500);
-           g_heartBeat[pin]=millis();
-          }
-        }
-
-	      Serial.write(g_message, j+1);
-
-      break;
-      case ARDUINO_SAVE_CONFIG:
-
-	for (j=3,i=0;i<g_length;i+=2,j+=2) {
-          EEPROM.write(i, g_message[j]);
-          g_config[i] = g_message[j];
-          EEPROM.write(i+1, g_message[j+1]);
-          g_config[i+1] = g_message[j+1];
-        }
-
-        g_message[0]=g_command|128;
-        g_message[1]=0;
-        g_message[2]=0;
-       	Serial.write(g_message, 3);
-      break;
-      case ARDUINO_RESET:
-
-	      for (i=0;i<MAX_CONFIG;i+=10) {
-           trimVal = g_config[i] | (g_config[i+1]<<7);
-           if (trimVal > 8192) trimVal -= 16384;
-           maxVal = g_config[i+2] | (g_config[i+3]<<7);
-           if (maxVal > 8192) maxVal -= 16384;
-           minVal = g_config[i+4] | (g_config[i+5]<<7);
-           if (minVal > 8192) minVal -= 16384;
-           pin = g_config[i+6] | (g_config[i+7]<<7);
-
-          if (pin!=0) {
-            val = ((maxVal-minVal)/2)+minVal+trimVal;
-            if (val<-1000) val=-1000;
-            if (val>1000) val=1000;
-            if (val<minVal) val=minVal;
-            if (val>maxVal) val=maxVal;
-            ss_SetPosition(pin, val+1500);
-            g_heartBeat[pin]=millis();
-          }
-        }
-
-      break;
-      case ARDUINO_GET_IR:
-        g_channel = g_message[2];
-        
-        g_value = analogRead(g_channel);
-
-        g_message[3] = g_value&127;
-        g_message[4] = (g_value>>7)&127;
-
-      break;
-      case ARDUINO_GET_SONAR:
-        pinMode(g_message[2], OUTPUT);
-        pinMode(g_message[3], INPUT);  
-
-        digitalWrite(g_message[2], LOW);
-        delayMicroseconds(2);
-        digitalWrite(g_message[2], HIGH);
-        delayMicroseconds(10); // Added this line
-        digitalWrite(g_message[2], LOW);
-
-        g_value = pulseIn(g_message[3], HIGH, 12500);
-
-        g_message[3] = g_value&127;
-        g_message[4] = (g_value>>7)&127;
-
-      break;
-      case ARDUINO_SAVE_SEQUENCE:
-        EEPROM.write(SEQ_START, g_length&255);
-        EEPROM.write(SEQ_START+1, g_length>>8);
-	      for (j=3,i=SEQ_START+2;i<(SEQ_START+g_length+2);i++,j++)
-          EEPROM.write(i, g_message[j]);
-
-        g_message[0]=g_command|128;
-        g_message[1]=0;
-        g_message[2]=0;
-	      Serial.write(g_message, 3);
-      break;
-    }
-  }
-
-  long sec = millis();
-  for (i=0;i<highestPin;i++)
-  {
-    if (g_heartBeat[i]!=0)
-    {
-      if ((sec - g_heartBeat[i])>2000)
-      {
-        ss_SetPosition(i, 0);
-        g_heartBeat[i]=0;
-      }
-    }
-  }
+  curLEyeAngle = curLEyeAngle - abs(curRndNum);
+  curREyeAngle = curREyeAngle - abs(curRndNum);
+  lEyeLR.write(curLEyeAngle);
+  rEyeLR.write(curREyeAngle);
 }

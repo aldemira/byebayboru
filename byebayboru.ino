@@ -1,7 +1,25 @@
 #include "SoftwareServos.h"
 #include <EEPROM.h>
 
-int highestPin = 20;
+/*
+PIN 0  -> Unused
+PIN 1  -> right eye Up-Dow
+PIN 2  -> left eye  Up-Down
+PIN 3  -> left eye  L-R
+PIN 4  -> right eye L-R
+PIN 5  -> Eye Lids (L+R)
+PIN 6  -> Mouth R
+PIN 7  -> Mouth L
+PIN 8  -> Head Up-Down
+PIN 9  -> Head L-R
+PIN 10 -> Eyebrow R
+PIN 11 -> Eyebrow L
+PIN 12 -> Ears
+PIN 13 -> LED Heart
+PIN 45 -> Eye brow up
+PIN 46 -> Mouth Centre
+*/
+int highestPin = 13;
 
 unsigned char g_message[1024];
 unsigned char g_config[256];
@@ -31,24 +49,24 @@ unsigned long g_heartBeat[20];
 #define ARDUINO_SAVE_CONFIG 33
 #define ARDUINO_SAVE_SEQUENCE 34
 
-#define MAX_CONFIG (85*2)
 #define SEQ_START MAX_CONFIG 
 #define SEQ_END (1024 - MAX_CONFIG)
+
+#define AUDIO_INPUT_PIN A0
 
 void initialize()
 {
   int i;
   for (i=0;i<highestPin;i++) g_heartBeat[i]=(long)0;
+
   
-  for (i=0;i<MAX_CONFIG;i++)
-    g_config[i]=EEPROM.read(i);
 }
 
 void setup()
 {
-  Serial.begin(57600);
+	Serial.begin(57600);
 
-  ss_Init();
+	ss_Init();
 }
 
 int readPacket()
@@ -102,11 +120,6 @@ int readPacket()
     if ((crc&127)!=(g_crc&127)) return 0;
   }
   return 1;
-}
-
-void echoPacket()
-{
-  Serial.write(g_message, g_messageTop);
 }
 
 // sets a part in the face identified by an id instead of a pin. This 
@@ -181,37 +194,15 @@ Serial.println("");
 
 void loop()
 {
-/*  
-  pinMode(19, OUTPUT);
-  pinMode(18, INPUT);  
-  digitalWrite(19, LOW);
-  delayMicroseconds(2);
-  digitalWrite(19, HIGH);
-  delayMicroseconds(10); // Added this line
-  digitalWrite(19, LOW);
-  Serial.println(pulseIn(18, HIGH));
-  return;
-*/
-  
-  //ss_SetPosition(4, 1500);
-  //return;
-/*
-  int p, q;
-  for (p=700, q=800;p<2300;p++, q++)
-  {
-    //ss_SetPosition(14, p);
-    ss_SetPosition(19, q);
-    delay(5);
-  }
+ 
+	//ss_SetPosition(4, 1500);
+	//return;
 
-  for (;p>=700;p--,q--)
-  {
-    //ss_SetPosition(14, p);
-    ss_SetPosition(19, q);
-    delay(5);
-  }
-  return;
-*/
+	// Read audio, and map it to the mouth
+	audioValue = analogRead(AUDIO_INPUT_PIN);
+	outputValue = map(audioValue, 0, 1023, 0, 255);
+	setObjectPosition(0,outputValue);
+
 
   // check if we should run the saved sequence or wait for PC response
   if (g_autoRun==0) {
@@ -251,7 +242,6 @@ void loop()
       case  ARDUINO_RELEASE_SERVO:
         g_channel = g_message[2];
         ss_SetPosition(g_channel, 0);
-        echoPacket();
       break;
       case  ARDUINO_SET_SERVO:
         g_channel = g_message[2];
@@ -261,7 +251,6 @@ void loop()
 
         g_heartBeat[g_channel]=millis();
 
-        echoPacket();
       break;
       case ARDUINO_SET_OBJECT:
         // sets the value of a specific part of the face. This uses configuration
@@ -273,7 +262,6 @@ void loop()
         setObjectPosition(g_channel, val);
         
         g_heartBeat[pin]=millis();
-        echoPacket();
       break;
       case ARDUINO_HEARTBEAT:
       break;
@@ -318,7 +306,7 @@ void loop()
       break;
       case ARDUINO_SAVE_CONFIG:
 
-	      for (j=3,i=0;i<g_length;i+=2,j+=2) {
+	for (j=3,i=0;i<g_length;i+=2,j+=2) {
           EEPROM.write(i, g_message[j]);
           g_config[i] = g_message[j];
           EEPROM.write(i+1, g_message[j+1]);
@@ -361,8 +349,6 @@ void loop()
         g_message[3] = g_value&127;
         g_message[4] = (g_value>>7)&127;
 
-        echoPacket();
-
       break;
       case ARDUINO_GET_SONAR:
         pinMode(g_message[2], OUTPUT);
@@ -379,7 +365,6 @@ void loop()
         g_message[3] = g_value&127;
         g_message[4] = (g_value>>7)&127;
 
-        echoPacket();
       break;
       case ARDUINO_SAVE_SEQUENCE:
         EEPROM.write(SEQ_START, g_length&255);

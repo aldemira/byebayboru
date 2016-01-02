@@ -49,10 +49,12 @@
 #define INITIAL_EYE_ANGLE 90
 /**** End Angle Definitions ****/
 
+
 /***** End Configurable Stuff *****/
 
 int audioVal;
 int outputVal;
+int secondBlink = 0;
 Servo rEyeLR;
 Servo eyeLids;
 Servo mouthR;
@@ -91,6 +93,9 @@ void setup()
   eyeBrowU.attach(EYE_BROW_UD, 1000, 2000);
   mouthUD.attach(MOUTH_UD, 1000, 2000);
   // XXX Error checks?
+
+ //eyelids initial angle
+ eyelids.write(eyeLidOpenAngle);
 }
 
 void loop()
@@ -123,8 +128,18 @@ void talkWithAnalogInput()
 void blinkMeEyes()
 {
         eyelids.write(eyeLidCloseAngle);
-        delay(20);
+	// Anything other than 150ms is too quick 
+	// for the servos to catch up
+        delay(150);
         eyelids.write(eyeLidOpenAngle);
+	// Make eye blinking a bit more realistic
+	// Every five time blink the lids twice
+	if(secondBlink == 5) {
+		secondBlink = -1;
+		delay(40);
+		blinkMeEyes();
+	}
+	secondBlink++;
 }
 
 // Move eyes slightly to left and right

@@ -54,7 +54,8 @@
 
 int audioVal;
 int outputVal;
-int secondBlink = 0;
+
+// Servo definitions
 Servo rEyeLR;
 Servo eyeLids;
 Servo mouthR;
@@ -67,9 +68,15 @@ Servo ears;
 Servo eyeBrowU;
 Servo mouthUD;
 
+// Boolean for second blink control
+int secondBlink = 0;
+
+// Timer storage
 int lastBlinkTime = 0;
 int lastEyeMovement = 0;
+
 // Globals to keep the current angle positions
+// Used for small eye movements
 int curLEyeAngle = INITIAL_EYE_ANGLE;
 int curREyeAngle = INITIAL_EYE_ANGLE;
 
@@ -95,6 +102,7 @@ void setup()
   // XXX Error checks?
 
  //eyelids initial angle
+ // XXX do we need to define initial angle for each servo?
  eyelids.write(eyeLidOpenAngle);
 }
 
@@ -133,13 +141,19 @@ void blinkMeEyes()
         delay(150);
         eyelids.write(eyeLidOpenAngle);
 	// Make eye blinking a bit more realistic
-	// Every five time blink the lids twice
-	if(secondBlink == 5) {
-		secondBlink = -1;
+	// Get a random value and have a 50% chance 
+	// of blinking the eye again. 
+	// Kind of makes it less mechanic
+	int shallWeBlinkAgain = random(1000,2000);
+	if(shallWeBlinkAgain > 1500 && secondBlink == 1) {
+		secondBlink = 0;
 		delay(40);
 		blinkMeEyes();
+	} else {
+		// There is a slight chance of shallWeBlinkAgain to be always
+		// Smaller than 1500 and it will keep on blinking it's eyes twice. 
+		secondBlink = 1;
 	}
-	secondBlink++;
 }
 
 // Move eyes slightly to left and right

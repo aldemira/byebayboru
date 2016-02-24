@@ -46,7 +46,7 @@
 #define EYE_LID_CLOSE_ANGLE 70
 #define MOUTH_MIN_ANGLE 0
 #define MOUTH_MAX_ANGLE 45
-#define INITIAL_EYE_ANGLE 90
+#define INITIAL_EYE_LR_ANGLE 90
 /**** End Angle Definitions ****/
 
 
@@ -77,8 +77,8 @@ int lastEyeMovement = 0;
 
 // Globals to keep the current angle positions
 // Used for small eye movements
-int curLEyeAngle = INITIAL_EYE_ANGLE;
-int curREyeAngle = INITIAL_EYE_ANGLE;
+int curLEyeAngle = INITIAL_EYE_LR_ANGLE;
+int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
 void setup()
 {
@@ -160,6 +160,9 @@ void blinkMeEyes()
 void moveEyesSlightly()
 {
   int curRndNum = random(-5,0);
+
+  if(curLEyeAngle < 5 || curREyeAngle < 5)
+	return;
 
   curLEyeAngle = curLEyeAngle - curRndNum;
   curREyeAngle = curREyeAngle - curRndNum;

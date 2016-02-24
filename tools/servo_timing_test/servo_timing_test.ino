@@ -11,12 +11,11 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("loop starts");
   delay(2000);
-
+  Serial.println("loop starts");
   prog_time = millis();
   Serial.println(prog_time);
-  Serial.println("Angle 20");
+  Serial.println("Angle 0");
   myservo.write(0);
   prog_time = millis();
   Serial.println(prog_time);

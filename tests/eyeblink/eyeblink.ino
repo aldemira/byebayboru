@@ -1,18 +1,30 @@
 #include <Servo.h>
 
-Servo myEyeLid;
+Servo eyeLid1;
+Servo eyeLid2;
+
 int pos = 0;
 /* Configurables */
-int eyeLidOpenAngle = 0;
-int eyeLidCloseAngle = 150;
-int eyeLidPin = 9;
+int LeyeLidOpenAngle = 30;
+int LeyeLidCloseAngle = 60;
+int ReyeLidOpenAngle = 55;
+int ReyeLidCloseAngle = 90;
+int eyeLidPin1 = 9;
+int eyeLidPin2 = 8;
+int min_pulse = 600;
+int max_pulse = 2400;
 /* End Configurables */
 
 int secondBlink = 0;
 
 void setup()
 {
-  myEyeLid.attach(eyeLidPin, 1000, 2000);
+  eyeLid1.attach(eyeLidPin1, min_pulse, max_pulse);
+  eyeLid2.attach(eyeLidPin2, min_pulse, max_pulse);
+
+  eyeLid1.write(LeyeLidOpenAngle);
+  eyeLid2.write(ReyeLidOpenAngle);
+  
   randomSeed(analogRead(2));
   Serial.begin(9600);
   Serial.println("Eye Blink Test");
@@ -21,17 +33,21 @@ void setup()
 
 void loop()
 {
+  
   blinkMeEyes();
   delay(3000);
+  
 }
 
 void blinkMeEyes()
 {
-        myEyeLid.write(eyeLidCloseAngle);
+        eyeLid1.write(LeyeLidCloseAngle);
+        eyeLid2.write(ReyeLidCloseAngle);
         // Anything other than 150ms is too quick
         // for the servos to catch up
         delay(200);
-        myEyeLid.write(eyeLidOpenAngle);
+        eyeLid1.write(LeyeLidOpenAngle);
+        eyeLid2.write(ReyeLidOpenAngle);
         // Make eye blinking a bit more realistic
         // Get a random value and have a 50% chance
         // of blinking the eye again.

@@ -1,13 +1,16 @@
+#include "Thread.h"
+#include "ThreadController.h"
 #include <Servo.h>
+#include <TimerThree.h>
 
 /****** PIN LAYOUT ************
   
-  PIN 0  -> Unused
-  PIN 1  -> right eye Up-Down
-  PIN 2  -> left eye  Up-Down
+  PIN 0  -> Eye Lid R
+  PIN 1  -> left eye Up-Down
+  PIN 2  -> right eye  Up-Down
   PIN 3  -> left eye  L-R
   PIN 4  -> right eye L-R
-  PIN 5  -> Eye Lids (L+R)
+  PIN 5  -> Eye Lid L
   PIN 6  -> Mouth R
   PIN 7  -> Mouth L
   PIN 8  -> Head Up-Down
@@ -21,11 +24,12 @@
 */
 /***** CONFIGURABLE PARAMETERS *****/
 /**** PIN definitions as stated above ****/
-#define R_EYE_UD 1
-#define L_EYE_UD 2
+#define R_EYE_UD 2
+#define L_EYE_UD 1
 #define L_EYE_LR 3
 #define R_EYE_LR 4
-#define EYE_LIDS 5
+#define EYE_LID_L 5
+#define EYE_LID_R 0
 #define MOUTH_R 6
 #define MOUTH_L 7
 #define HEAD_UD 8
@@ -33,17 +37,19 @@
 #define EYE_BROW_R 10
 #define EYE_BROW_L 11
 #define EARS 12
-#define EYE_BROW_UP 45
+#define EYE_BROW_UD 45
 #define MOUTH_UD 46
 /**** End Servo PIN definitions ****/
 
 /**** Audio INPUT PIN definition (Mono) ****/
-#define AUDIO_INPUT_PIN 0
+#define AUDIO_INPUT_PIN A0
 /**** End INPUT PIN definition ****/
 
 /**** Angle Definitions ****/
-#define EYE_LID_OPEN_ANGLE 20
-#define EYE_LID_CLOSE_ANGLE 70
+#define LEYE_LID_OPEN_ANGLE 80
+#define LEYE_LID_CLOSE_ANGLE 120
+#define REYE_LID_OPEN_ANGLE 55
+#define REYE_LID_CLOSE_ANGLE 90
 #define MOUTH_MIN_ANGLE 0
 #define MOUTH_MAX_ANGLE 45
 #define INITIAL_EYE_LR_ANGLE 90
@@ -57,7 +63,9 @@ int outputVal;
 
 // Servo definitions
 Servo rEyeLR;
-Servo eyeLids;
+Servo lEyeLR;
+Servo eyeLidL;
+Servo eyeLidR;
 Servo mouthR;
 Servo mouthL;
 Servo headUD;
@@ -67,13 +75,34 @@ Servo eyeBrowL;
 Servo ears;
 Servo eyeBrowU;
 Servo mouthUD;
+Servo rEyeUD;
+Servo lEyeUD;
+
+
+//Thread definitions
+
+Thread heartbeatTh = Thread();
+Thread talkTh = Thread();
+Thread buttonTh = Thread();
+Thread commonMovesTh = Thread();
+ThreadController control1 = ThreadController();
+
 
 // Boolean for second blink control
 int secondBlink = 0;
-
+// Eye blink interval in ms
+int blinkinterval = 3000;
+// ms to increase the voltage on the heartbeat led
+int hearbeatDelay = 50;
 // Timer storage
 int lastBlinkTime = 0;
 int lastEyeMovement = 0;
+// Servo pulse widths
+int min_pulse = 600;
+int max_pulse = 2400;
+
+// Shall we light the heart or dim it
+int invertheart = 0;
 
 // Globals to keep the current angle positions
 // Used for small eye movements
@@ -83,37 +112,118 @@ int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 void setup()
 {
   // Make random really random by reading from A2
-  randomSeed(analogRead(2));
+  randomSeed(analogRead(A2));
 
-  rEyeUD.attach(R_EYE_UD, 1000, 2000);
-  lEyeUD.attach(L_EYE_UD, 1000, 2000);
-  lEyeLR.attach(L_EYE_LR, 1000, 2000);
-  rEyeLR.attach(R_EYE_LR, 1000, 2000);
-  eyeLids.attach(EYE_LIDS, 1000, 2000);
-  mouthR.attach(MOUTH_R, 1000, 2000);
-  mouthL.attach(MOUTH_L, 1000, 2000);
-  headUD.attach(HEAD_UD, 1000, 2000);
-  headLR.attach(HEAD_LR, 1000, 2000);
-  eyeBrowR.attach(EYE_BROW_R, 1000, 2000);
-  eyeBrowL.attach(EYE_BROW_L, 1000, 2000);
-  ears.attach(EARS, 1000, 2000);
-  eyeBrowU.attach(EYE_BROW_UD, 1000, 2000);
-  mouthUD.attach(MOUTH_UD, 1000, 2000);
+  // Thread callback definitions
+  heartbeatTh.onRun(heartbeatCallback);
+  heartbeatTh.setInterval((hearbeatDelay*10)+10);
+
+  buttonTh.onRun(buttonHandler);
+  buttonTh.setInterval((hearbeatDelay*10)+10);
+
+  talkTh.onRun(talkCallback);
+  talkTh.setInterval(150);
+
+  commonMovesTh.onRun(commonMovesCallback);
+  commonMovesTh.setInterval(1000);
+
+  control1.add(&heartbeatTh);
+  control1.add(&buttonTh);
+  control1.add(&talkTh);
+  control1.add(&commonMovesTh);
+
+  // Timer setup. Needed for proper timing
+  Timer3.initialize(150000);
+  Timer3.attachInterrupt(timerCallback);
+  
+  //Servo setup
+  rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);
+  lEyeUD.attach(L_EYE_UD, min_pulse, max_pulse);
+  lEyeLR.attach(L_EYE_LR, min_pulse, max_pulse);
+  rEyeLR.attach(R_EYE_LR, min_pulse, max_pulse);
+  eyeLidL.attach(EYE_LID_L, min_pulse, max_pulse);
+  eyeLidR.attach(EYE_LID_R, min_pulse, max_pulse);
+  mouthR.attach(MOUTH_R, min_pulse, max_pulse);
+  mouthL.attach(MOUTH_L, min_pulse, max_pulse);
+  headUD.attach(HEAD_UD, min_pulse, max_pulse);
+  headLR.attach(HEAD_LR, min_pulse, max_pulse);
+  eyeBrowR.attach(EYE_BROW_R, min_pulse, max_pulse);
+  eyeBrowL.attach(EYE_BROW_L, min_pulse, max_pulse);
+  ears.attach(EARS, min_pulse, max_pulse);
+  eyeBrowU.attach(EYE_BROW_UD, min_pulse, max_pulse);
+  mouthUD.attach(MOUTH_UD, min_pulse, max_pulse);
   // XXX Error checks?
 
- //eyelids initial angle
- // XXX do we need to define initial angle for each servo?
- eyelids.write(eyeLidOpenAngle);
+  //eyelids initial position
+  eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+  eyeLidR.write(REYE_LID_OPEN_ANGLE);
 }
 
 void loop()
 {
 
-  talkWithAnalogInput();
+}
 
-  // XXX What will be the assumed initial servo angles?
-  nowTime = millis();
-  if(nowTime - lastBlinkTime >= 5000)
+void timerCallback()
+{
+  control1.run();
+}
+
+void talkCallback()
+{
+  //talkWithAnalogInput();
+}
+void buttonHandler()
+{
+  /*
+  buttonstate = digitalRead(12);
+  //Serial.println(buttonstate);
+  if(buttonstate == HIGH) {
+    Serial.println("Button high");
+    if(invert2 == 0) {
+      for(int i=0;i<10;i++){
+        analogWrite(led2Pin, brightness2);
+        brightness2 +=10;
+        delay(heartbeatDelay);
+        invert2 = 1;
+      }
+    } else {
+      for(int i=0;i<10;i++) {
+        analogWrite(led2Pin, brightness2);
+        brightness2 -=10;
+        delay(heartbeatDelay);
+        invert2 = 0;
+      }
+    } 
+  }
+  */
+}
+void heartbeatCallback()
+{
+  /*
+   if(invert == 0) {
+    for (int i=0; i<10; i++) {
+      analogWrite(ledPin, brightness);
+      brightness += 10;
+       delay(heartbeatDelay);
+    }
+    invert = 1;
+  } else {
+    for(int i=0; i<10; i++) {
+      analogWrite(ledPin, brightness);
+      brightness -= 10;
+      delay(heartbeatDelay);
+    }
+    invert = 0;
+  }
+  */
+  return;
+}
+
+void commonMovesCallback()
+{
+  int nowTime = millis();
+  if(nowTime - lastBlinkTime >= blinkinterval)
         blinkMeEyes();
 
   if(nowTime - lastEyeMovement >= 500 + random(100))
@@ -125,6 +235,7 @@ void loop()
 
 // Read audio, and map it to the mouth
 // to give a talking impression
+
 void talkWithAnalogInput()
 {
   audioVal = analogRead(AUDIO_INPUT_PIN);
@@ -135,11 +246,13 @@ void talkWithAnalogInput()
 // Eye blink operation
 void blinkMeEyes()
 {
-        eyelids.write(eyeLidCloseAngle);
+  eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
+  eyeLidR.write(REYE_LID_CLOSE_ANGLE);
 	// Anything other than 150ms is too quick 
 	// for the servos to catch up
-        delay(150);
-        eyelids.write(eyeLidOpenAngle);
+  delay(150);
+  eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+  eyeLidR.write(REYE_LID_OPEN_ANGLE);
 	// Make eye blinking a bit more realistic
 	// Get a random value and have a 50% chance 
 	// of blinking the eye again. 
@@ -162,7 +275,7 @@ void moveEyesSlightly()
   int curRndNum = random(-5,0);
 
   if(curLEyeAngle < 5 || curREyeAngle < 5)
-	return;
+	  return;
 
   curLEyeAngle = curLEyeAngle - curRndNum;
   curREyeAngle = curREyeAngle - curRndNum;

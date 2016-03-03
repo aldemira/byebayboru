@@ -1,7 +1,7 @@
 #include "Thread.h"
 #include "ThreadController.h"
 #include <Servo.h>
-#include <TimerThree.h>
+
 
 /****** PIN LAYOUT ************
   
@@ -39,6 +39,7 @@
 #define EARS 12
 #define EYE_BROW_UD 45
 #define MOUTH_UD 46
+#define ledPin 13
 /**** End Servo PIN definitions ****/
 
 /**** Audio INPUT PIN definition (Mono) ****/
@@ -46,11 +47,11 @@
 /**** End INPUT PIN definition ****/
 
 /**** Angle Definitions ****/
-#define LEYE_LID_OPEN_ANGLE 80
-#define LEYE_LID_CLOSE_ANGLE 120
+#define LEYE_LID_OPEN_ANGLE 30
+#define LEYE_LID_CLOSE_ANGLE 60
 #define REYE_LID_OPEN_ANGLE 55
 #define REYE_LID_CLOSE_ANGLE 90
-#define MOUTH_MIN_ANGLE 0
+#define MOUTH_MIN_ANGLE 5
 #define MOUTH_MAX_ANGLE 45
 #define INITIAL_EYE_LR_ANGLE 90
 /**** End Angle Definitions ****/
@@ -101,6 +102,10 @@ int lastEyeMovement = 0;
 int min_pulse = 600;
 int max_pulse = 2400;
 
+byte invert = 0;
+byte brightness = 0;
+int heartbeatDelay = 50;
+
 // Shall we light the heart or dim it
 int invertheart = 0;
 
@@ -111,6 +116,8 @@ int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
 void setup()
 {
+  //SETUP heart
+  pinMode(ledPin, OUTPUT);
   // Make random really random by reading from A2
   randomSeed(analogRead(A2));
 
@@ -125,17 +132,13 @@ void setup()
   talkTh.setInterval(150);
 
   commonMovesTh.onRun(commonMovesCallback);
-  commonMovesTh.setInterval(1000);
+  commonMovesTh.setInterval(3000);
 
   control1.add(&heartbeatTh);
   control1.add(&buttonTh);
   control1.add(&talkTh);
   control1.add(&commonMovesTh);
-
-  // Timer setup. Needed for proper timing
-  Timer3.initialize(150000);
-  Timer3.attachInterrupt(timerCallback);
-  
+    
   //Servo setup
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);
   lEyeUD.attach(L_EYE_UD, min_pulse, max_pulse);
@@ -157,14 +160,10 @@ void setup()
   //eyelids initial position
   eyeLidL.write(LEYE_LID_OPEN_ANGLE);
   eyeLidR.write(REYE_LID_OPEN_ANGLE);
+  mouthUD.write(MOUTH_MIN_ANGLE);
 }
 
 void loop()
-{
-
-}
-
-void timerCallback()
 {
   control1.run();
 }
@@ -173,6 +172,7 @@ void talkCallback()
 {
   //talkWithAnalogInput();
 }
+
 void buttonHandler()
 {
   /*
@@ -198,39 +198,37 @@ void buttonHandler()
   }
   */
 }
+
 void heartbeatCallback()
 {
-  /*
    if(invert == 0) {
     for (int i=0; i<10; i++) {
       analogWrite(ledPin, brightness);
-      brightness += 10;
+      brightness += 20;
        delay(heartbeatDelay);
     }
     invert = 1;
   } else {
     for(int i=0; i<10; i++) {
       analogWrite(ledPin, brightness);
-      brightness -= 10;
+      brightness -= 20;
       delay(heartbeatDelay);
     }
     invert = 0;
-  }
-  */
-  return;
+  }  
 }
 
 void commonMovesCallback()
 {
   int nowTime = millis();
-  if(nowTime - lastBlinkTime >= blinkinterval)
-        blinkMeEyes();
-
-  if(nowTime - lastEyeMovement >= 500 + random(100))
-        moveEyesSlightly();
-
-  // Wait 150ms between each analog sample
+  blinkMeEyes();
   delay(150);
+  if(nowTime - lastEyeMovement >= 500 + random(100)) {
+    delay(150);
+    moveEyesSlightly();
+  }
+
+  Serial.println("Blink");
 }
 
 // Read audio, and map it to the mouth
@@ -260,8 +258,11 @@ void blinkMeEyes()
 	int shallWeBlinkAgain = random(1000,2000);
 	if(shallWeBlinkAgain > 1500 && secondBlink == 1) {
 		secondBlink = 0;
+    eyeBrowU.write(100);
 		delay(40);
 		blinkMeEyes();
+    eyeBrowU.write(70);
+    
 	} else {
 		// There is a slight chance of shallWeBlinkAgain to be always
 		// Smaller than 1500 and it will keep on blinking it's eyes twice. 
@@ -272,9 +273,9 @@ void blinkMeEyes()
 // Move eyes slightly to left and right
 void moveEyesSlightly()
 {
-  int curRndNum = random(-5,0);
+  int curRndNum = random(-20,0);
 
-  if(curLEyeAngle < 5 || curREyeAngle < 5)
+  if(curLEyeAngle < 20 || curREyeAngle < 20)
 	  return;
 
   curLEyeAngle = curLEyeAngle - curRndNum;

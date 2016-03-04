@@ -39,14 +39,14 @@
 #define EARS 12
 #define EYE_BROW_UD 45
 #define MOUTH_UD 46
-#define ledPin 13
+#define HEART_LED 13
 /**** End Servo PIN definitions ****/
 
 /**** Audio INPUT PIN definition (Mono) ****/
 #define AUDIO_INPUT_PIN A0
 /**** End INPUT PIN definition ****/
 
-/**** Angle Definitions ****/
+/**** Servo Angle Definitions ****/
 #define LEYE_LID_OPEN_ANGLE 30
 #define LEYE_LID_CLOSE_ANGLE 60
 #define REYE_LID_OPEN_ANGLE 55
@@ -54,6 +54,8 @@
 #define MOUTH_MIN_ANGLE 5
 #define MOUTH_MAX_ANGLE 45
 #define INITIAL_EYE_LR_ANGLE 90
+#define EARS_INITIAL_ANGLE 90
+#define EARS_FINAL_ANGLE 120
 /**** End Angle Definitions ****/
 
 
@@ -86,28 +88,28 @@ Thread heartbeatTh = Thread();
 Thread talkTh = Thread();
 Thread buttonTh = Thread();
 Thread commonMovesTh = Thread();
+Thread blinkTh = Thread();
 ThreadController control1 = ThreadController();
 
 
 // Boolean for second blink control
-int secondBlink = 0;
+byte secondBlink = 0;
 // Eye blink interval in ms
 int blinkinterval = 3000;
 // ms to increase the voltage on the heartbeat led
-int hearbeatDelay = 50;
+int heartbeatDelay = 50;
 // Timer storage
 int lastBlinkTime = 0;
 int lastEyeMovement = 0;
 // Servo pulse widths
 int min_pulse = 600;
 int max_pulse = 2400;
-
+// Shall we light the heart or dim it
 byte invert = 0;
 byte brightness = 0;
-int heartbeatDelay = 50;
 
-// Shall we light the heart or dim it
-int invertheart = 0;
+// Will change if bye boru is cross or excited
+byte heartbeatStep = 10;
 
 // Globals to keep the current angle positions
 // Used for small eye movements
@@ -117,29 +119,35 @@ int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 void setup()
 {
   //SETUP heart
-  pinMode(ledPin, OUTPUT);
+  pinMode(HEART_LED, OUTPUT);
+  
   // Make random really random by reading from A2
   randomSeed(analogRead(A2));
 
   // Thread callback definitions
   heartbeatTh.onRun(heartbeatCallback);
-  heartbeatTh.setInterval((hearbeatDelay*10)+10);
+  heartbeatTh.setInterval((heartbeatDelay*10)+10);
 
   buttonTh.onRun(buttonHandler);
-  buttonTh.setInterval((hearbeatDelay*10)+10);
+  buttonTh.setInterval((heartbeatDelay*10)+10);
 
   talkTh.onRun(talkCallback);
   talkTh.setInterval(150);
 
   commonMovesTh.onRun(commonMovesCallback);
-  commonMovesTh.setInterval(3000);
+  commonMovesTh.setInterval(500);
 
+  blinkTh.onRun(blinkMeEyes);
+  blinkTh.setInterval(3000);
+
+  //thread group definition
   control1.add(&heartbeatTh);
   control1.add(&buttonTh);
   control1.add(&talkTh);
   control1.add(&commonMovesTh);
+  control1.add(&blinkTh);
     
-  //Servo setup
+  //Servo setups
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);
   lEyeUD.attach(L_EYE_UD, min_pulse, max_pulse);
   lEyeLR.attach(L_EYE_LR, min_pulse, max_pulse);
@@ -155,9 +163,8 @@ void setup()
   ears.attach(EARS, min_pulse, max_pulse);
   eyeBrowU.attach(EYE_BROW_UD, min_pulse, max_pulse);
   mouthUD.attach(MOUTH_UD, min_pulse, max_pulse);
-  // XXX Error checks?
-
-  //eyelids initial position
+  
+  //servo initial positions
   eyeLidL.write(LEYE_LID_OPEN_ANGLE);
   eyeLidR.write(REYE_LID_OPEN_ANGLE);
   mouthUD.write(MOUTH_MIN_ANGLE);
@@ -202,15 +209,15 @@ void buttonHandler()
 void heartbeatCallback()
 {
    if(invert == 0) {
-    for (int i=0; i<10; i++) {
-      analogWrite(ledPin, brightness);
+    for (int i=0; i<heartbeatStep; i++) {
+      analogWrite(HEART_LED, brightness);
       brightness += 20;
        delay(heartbeatDelay);
     }
     invert = 1;
   } else {
-    for(int i=0; i<10; i++) {
-      analogWrite(ledPin, brightness);
+    for(int i=0; i<heartbeatStep; i++) {
+      analogWrite(HEART_LED, brightness);
       brightness -= 20;
       delay(heartbeatDelay);
     }
@@ -220,26 +227,14 @@ void heartbeatCallback()
 
 void commonMovesCallback()
 {
-  int nowTime = millis();
-  blinkMeEyes();
-  delay(150);
-  if(nowTime - lastEyeMovement >= 500 + random(100)) {
-    delay(150);
+  // 50% chance to move eyes every 500 ms
+  if(random(100) > 50)
     moveEyesSlightly();
-  }
-
-  Serial.println("Blink");
+  // 30% chance to wiggle ears
+  if(random(100) <= 33)
+    wiggleEars();
 }
 
-// Read audio, and map it to the mouth
-// to give a talking impression
-
-void talkWithAnalogInput()
-{
-  audioVal = analogRead(AUDIO_INPUT_PIN);
-  outputVal = map(audioVal, 0, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
-  mouthUD.write(outputVal);
-}
 
 // Eye blink operation
 void blinkMeEyes()
@@ -270,6 +265,15 @@ void blinkMeEyes()
 	}
 }
 
+// Read audio, and map it to the mouth
+// to give a talking impression
+void talkWithAnalogInput()
+{
+  audioVal = analogRead(AUDIO_INPUT_PIN);
+  outputVal = map(audioVal, 0, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
+  mouthUD.write(outputVal);
+}
+
 // Move eyes slightly to left and right
 void moveEyesSlightly()
 {
@@ -290,3 +294,34 @@ void moveEyesSlightly()
   lEyeLR.write(curLEyeAngle);
   rEyeLR.write(curREyeAngle);
 }
+
+// func name self explanatory
+void wiggleEars()
+{
+  ears.write(EARS_FINAL_ANGLE);
+  delay(150);
+  ears.write(EARS_INITIAL_ANGLE); 
+}
+
+void bbNeutral()
+{
+  
+}
+void bbAfraid()
+{
+
+}
+void bbHappy()
+{
+  
+}
+
+void bbCross()
+{
+  
+}
+void bbSad()
+{
+  
+}
+

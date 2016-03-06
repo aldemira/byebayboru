@@ -5,9 +5,9 @@
 #define MOUTH_UD 46
 
 // Analog sound input
-#define AUDIO_INPUT_PIN 0
+#define AUDIO_INPUT_PIN A0
 
-#define MOUTH_UD_MIN_ANGLE 0
+#define MOUTH_UD_MIN_ANGLE 5
 #define MOUTH_UD_MAX_ANGLE 45
 /***** End Configurables *****/
 
@@ -17,13 +17,17 @@ int outputVal;
 
 void setup()
 {
-  mouthUD.attach(MOUTH_UD, 1000, 2000);
+  pinMode(AUDIO_INPUT_PIN, INPUT);
+  mouthUD.attach(MOUTH_UD, 600, 2400);
+  Serial.begin(9600);
 }
 
 void loop()
 {
   audioVal = analogRead(AUDIO_INPUT_PIN);
-  outputVal = map(audioVal, 0, 1023, MOUTH_UD_MIN_ANGLE, MOUTH_UD_MAX_ANGLE);
+  
+  Serial.println(audioVal);
+  outputVal = map(audioVal, 0, 1024, MOUTH_UD_MIN_ANGLE, MOUTH_UD_MAX_ANGLE);
   mouthUD.write(outputVal);
   // give us a bit of a delay to servos 
   // to catch up

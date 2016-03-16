@@ -44,20 +44,28 @@
 
 /**** Audio INPUT PIN definition (Mono) ****/
 #define AUDIO_INPUT_PIN A0
+/**** Accelerometer INPUTS ****/
+#define ACC_X_INPUT_PIN A2
+#define ACC_Y_INPUT_PIN A3
+#define ACC_Z_INPUT_PIN A4
 /**** End INPUT PIN definition ****/
-
 /**** Servo Angle Definitions ****/
 #define LEYE_LID_OPEN_ANGLE 30
 #define LEYE_LID_CLOSE_ANGLE 60
 #define REYE_LID_OPEN_ANGLE 55
 #define REYE_LID_CLOSE_ANGLE 90
 #define MOUTH_MIN_ANGLE 5
-#define MOUTH_MAX_ANGLE 45
+#define MOUTH_MAX_ANGLE 25
 #define INITIAL_EYE_LR_ANGLE 90
 #define EARS_INITIAL_ANGLE 90
 #define EARS_FINAL_ANGLE 120
 /**** End Angle Definitions ****/
-
+/**** Accelerometer Thresholds ****/
+const int forwardThreshold = 340;
+const int backwardThreshold = 330;
+const int leftThreshold = 360;
+const int rightThreshold = 350;
+/**** END Accelerometer Thresholds ****/
 
 /***** End Configurable Stuff *****/
 
@@ -89,6 +97,7 @@ Thread talkTh = Thread();
 Thread buttonTh = Thread();
 Thread commonMovesTh = Thread();
 Thread blinkTh = Thread();
+Thread moveHeadTh = Thread();
 ThreadController control1 = ThreadController();
 
 
@@ -118,6 +127,8 @@ int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
 void setup()
 {
+  // For debugging purposes
+  Serial.begin(9600);
   //SETUP heart
   pinMode(HEART_LED, OUTPUT);
   
@@ -132,7 +143,7 @@ void setup()
   buttonTh.setInterval((heartbeatDelay*10)+10);
 
   talkTh.onRun(talkCallback);
-  talkTh.setInterval(150);
+  talkTh.setInterval(100);
 
   commonMovesTh.onRun(commonMovesCallback);
   commonMovesTh.setInterval(500);
@@ -140,12 +151,16 @@ void setup()
   blinkTh.onRun(blinkMeEyes);
   blinkTh.setInterval(3000);
 
+  moveHeadTh.onRun(moveHeadCallback);
+  moveHeadTh.setInterval(300);
+
   //thread group definition
   control1.add(&heartbeatTh);
-  control1.add(&buttonTh);
   control1.add(&talkTh);
+  control1.add(&buttonTh);  
   control1.add(&commonMovesTh);
   control1.add(&blinkTh);
+  control1.add(&moveHeadTh);
     
   //Servo setups
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);
@@ -175,9 +190,11 @@ void loop()
   control1.run();
 }
 
+/**************** CALLBACK FUNCTIONS *************/
+
 void talkCallback()
 {
-  //talkWithAnalogInput();
+  talkWithAnalogInput();
 }
 
 void buttonHandler()
@@ -235,7 +252,15 @@ void commonMovesCallback()
     wiggleEars();
 }
 
+void moveHeadCallback()
+{
+  int xAxis = analogRead(ACC_X_INPUT_PIN);
+  int yAxis = analogRead(ACC_Y_INPUT_PIN);
+  int zAxis = analogRead(ACC_Z_INPUT_PIN);
+}
 
+/*********** END CALLBACK FUNCTIONS *******************/
+/*********** HELPER FUNCTIONS *************************/
 // Eye blink operation
 void blinkMeEyes()
 {
@@ -270,8 +295,15 @@ void blinkMeEyes()
 void talkWithAnalogInput()
 {
   audioVal = analogRead(AUDIO_INPUT_PIN);
-  outputVal = map(audioVal, 0, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
+  
+  Serial.print("Audio Val: ");
+  Serial.println(audioVal);
+  
+  outputVal = map(audioVal, 520, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
+  outputVal = abs(outputVal);
   mouthUD.write(outputVal);
+  Serial.print("Mouth: ");
+  Serial.println(outputVal); 
 }
 
 // Move eyes slightly to left and right
@@ -324,4 +356,5 @@ void bbSad()
 {
   
 }
+/*************** END HELPER FUNCTIONS *********************/
 

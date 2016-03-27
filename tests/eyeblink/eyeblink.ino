@@ -5,12 +5,12 @@ Servo eyeLid2;
 
 int pos = 0;
 /* Configurables */
-int LeyeLidOpenAngle = 30;
-int LeyeLidCloseAngle = 60;
-int ReyeLidOpenAngle = 55;
-int ReyeLidCloseAngle = 90;
-int eyeLidPin1 = 9;
-int eyeLidPin2 = 8;
+int LeyeLidOpenAngle = 60;
+int LeyeLidCloseAngle = 85;
+int ReyeLidOpenAngle = 35;
+int ReyeLidCloseAngle = 60;
+static int eyeLidPin1 = 0;
+static int eyeLidPin2 = 5;
 int min_pulse = 600;
 int max_pulse = 2400;
 /* End Configurables */
@@ -21,14 +21,14 @@ void setup()
 {
   eyeLid1.attach(eyeLidPin1, min_pulse, max_pulse);
   eyeLid2.attach(eyeLidPin2, min_pulse, max_pulse);
-
+  delay(100);
   eyeLid1.write(LeyeLidOpenAngle);
   eyeLid2.write(ReyeLidOpenAngle);
   
   randomSeed(analogRead(2));
-  Serial.begin(9600);
-  Serial.println("Eye Blink Test");
-  delay(2000);// Give reader a chance to see the output.
+  //Serial.begin(9600);
+  //Serial.println("Eye Blink Test");
+  //delay(2000);// Give reader a chance to see the output.
 }
 
 void loop()
@@ -53,7 +53,7 @@ void blinkMeEyes()
         // of blinking the eye again.
         // Kind of makes it less mechanic
         int shallWeBlinkAgain = random(1000,2000);
-        Serial.println(shallWeBlinkAgain);
+        //Serial.println(shallWeBlinkAgain);
         
         if(shallWeBlinkAgain > 1900 && secondBlink == 1) {
                 secondBlink = 0;

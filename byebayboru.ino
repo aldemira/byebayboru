@@ -19,6 +19,7 @@
 #include "Thread.h"
 #include "ThreadController.h"
 #include <Servo.h>
+#include <Wire.h>
 
 
 /****** PIN LAYOUT ************
@@ -46,8 +47,8 @@
 #define L_EYE_UD 1
 #define L_EYE_LR 3
 #define R_EYE_LR 4
-#define EYE_LID_L 5
-#define EYE_LID_R 0
+#define EYE_LID_L 0
+#define EYE_LID_R 5
 #define MOUTH_R 6
 #define MOUTH_L 7
 #define HEAD_UD 8
@@ -66,17 +67,23 @@
 #define ACC_X_INPUT_PIN A2
 #define ACC_Y_INPUT_PIN A3
 #define ACC_Z_INPUT_PIN A4
+/***** Button Inputs *******/
+#define BUTTON1_INPUT_PIN A5
+#define BUTTON2_INPUT_PIN A6
+/****** Button Inputs ******/
 /**** End INPUT PIN definition ****/
 /**** Servo Angle Definitions ****/
-#define LEYE_LID_OPEN_ANGLE 30
-#define LEYE_LID_CLOSE_ANGLE 60
-#define REYE_LID_OPEN_ANGLE 55
-#define REYE_LID_CLOSE_ANGLE 90
+#define LEYE_LID_OPEN_ANGLE 60
+#define LEYE_LID_CLOSE_ANGLE 85
+#define REYE_LID_OPEN_ANGLE 40
+#define REYE_LID_CLOSE_ANGLE 60
 #define MOUTH_MIN_ANGLE 5
 #define MOUTH_MAX_ANGLE 25
 #define INITIAL_EYE_LR_ANGLE 90
 #define EARS_INITIAL_ANGLE 90
 #define EARS_FINAL_ANGLE 120
+#define HEADLR_MIN_ANGLE 30
+#define HEADLR_MAX_ANGLE 90
 /**** End Angle Definitions ****/
 /**** Accelerometer Thresholds ****/
 const int forwardThreshold = 340;
@@ -111,7 +118,7 @@ Servo lEyeUD;
 //Thread definitions
 
 Thread heartbeatTh = Thread();
-Thread talkTh = Thread();
+
 Thread buttonTh = Thread();
 Thread commonMovesTh = Thread();
 Thread blinkTh = Thread();
@@ -143,10 +150,36 @@ byte heartbeatStep = 10;
 int curLEyeAngle = INITIAL_EYE_LR_ANGLE;
 int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
+byte headinvert = 0;
+
+// When made true anything else will stop
+bool ultimateaction = false;
+// when true random eye moves won't run
+bool stopeyemoves = false;
+// Accelerometer will be disengaged if true
+bool ignoreacc = false;
+/**** Commands to send to the other arduino
+* mouthcommand = 0 Normal operation
+* mouthcommand = 1 Open mouth
+* mouthcommand = 2 stop everything
+* Anything bigger than 7 sets permament mouth angle until 0 is sent
+*****/
+byte mouthcommand = 0;
+
+// Accelerometer Parameters
+//float xZero = 319;
+//float yZero = 337;
+//float zZero = 419;
+//int Scale = 1;
+double xAcc = 0;
+double yAcc = 0;
+double zAcc = 0;
+const float alpha = 0.5;
+
 void setup()
 {
   // For debugging purposes
-  Serial.begin(9600);
+  //Serial.begin(9600);
   //SETUP heart
   pinMode(HEART_LED, OUTPUT);
   
@@ -160,9 +193,6 @@ void setup()
   buttonTh.onRun(buttonHandler);
   buttonTh.setInterval((heartbeatDelay*10)+10);
 
-  talkTh.onRun(talkCallback);
-  talkTh.setInterval(100);
-
   commonMovesTh.onRun(commonMovesCallback);
   commonMovesTh.setInterval(500);
 
@@ -174,7 +204,6 @@ void setup()
 
   //thread group definition
   control1.add(&heartbeatTh);
-  control1.add(&talkTh);
   control1.add(&buttonTh);  
   control1.add(&commonMovesTh);
   control1.add(&blinkTh);
@@ -195,50 +224,92 @@ void setup()
   eyeBrowL.attach(EYE_BROW_L, min_pulse, max_pulse);
   ears.attach(EARS, min_pulse, max_pulse);
   eyeBrowU.attach(EYE_BROW_UD, min_pulse, max_pulse);
-  mouthUD.attach(MOUTH_UD, min_pulse, max_pulse);
   
   //servo initial positions
   eyeLidL.write(LEYE_LID_OPEN_ANGLE);
   eyeLidR.write(REYE_LID_OPEN_ANGLE);
-  mouthUD.write(MOUTH_MIN_ANGLE);
+
+  // Servo Arduino communications
+  Wire.begin();
 }
 
 void loop()
 {
-  control1.run();
+  while(1)
+    control1.run();
 }
 
 /**************** CALLBACK FUNCTIONS *************/
-
-void talkCallback()
-{
-  talkWithAnalogInput();
-}
-
 void buttonHandler()
 {
-  /*
-  buttonstate = digitalRead(12);
-  //Serial.println(buttonstate);
-  if(buttonstate == HIGH) {
-    Serial.println("Button high");
-    if(invert2 == 0) {
-      for(int i=0;i<10;i++){
-        analogWrite(led2Pin, brightness2);
-        brightness2 +=10;
-        delay(heartbeatDelay);
-        invert2 = 1;
-      }
-    } else {
-      for(int i=0;i<10;i++) {
-        analogWrite(led2Pin, brightness2);
-        brightness2 -=10;
-        delay(heartbeatDelay);
-        invert2 = 0;
-      }
-    } 
+  if(ultimateaction == true)
+    return;
+  int button1Aval = 0, button2Aval = 0;
+  byte button1val = 0, button2val = 0; 
+  
+
+  button1Aval = analogRead(BUTTON1_INPUT_PIN);
+  button2Aval = analogRead(BUTTON2_INPUT_PIN);
+
+  if(button1Aval >= 200 && button1Aval <= 210)
+    button1val = 1;
+  else if(button1Aval >= 505 && button1Aval <=515)
+    button1val = 2;
+  else if(button1Aval >= 835 && button1Aval <= 845)
+    button1val = 3;
+    
+  if(button2Aval >= 200 && button2Aval <= 210)
+    button2val = 1;
+  else if(button2Aval >= 505 && button2Aval <=515)
+    button2val = 2;
+  else if(button2Aval >= 835 && button2Aval <= 845)
+    button2val = 3;
+
+  // This is gonna be ugly
+  if(button1val == 0 && button2val == 0) {
+    // XXX Handle action when buttons are released
+    if(ignoreacc == true) {
+      ignoreacc = false;
+      // XXX Set new acc values here
+    }
+  } else if(button1val == 1 && button2val == 0) {
+    //L1 single press
+    bbEarSpin();
+  } else if(button1val == 2 && button2val == 0) {
+    //L2 single press
+    bbFear();
+  } else if(button1val == 3 && button2val == 0) {
+    //L3 single press
+    bbMouthOpen();
+  } else if(button2val == 1 && button1val == 0) {
+    //R1 single press
+    bbWink();
+  } else if(button2val == 2 && button1val == 0) {
+    //R2 single press
+    bbFrown();
+  } else if(button2val == 3 && button1val == 0) {
+    //R3 single press
+    bbWhistle();
+  } else if(button2val == 3 && button1val == 3) {
+    //L3 + R3 bb dies
+    // No return back from this point
+    bbDie();
+  } else if(button2val == 1 && button1val == 1) {
+    //L1 + R1 searching eyes
+    bbSearch();
+  } else if(button1val == 1 && button2val == 2) {
+    //L1 + R2 I'm the man
+    bbimCool();
+  } else if(button1val == 1 && button2val == 3) {
+    // L1 + R3 reset accelerometer
+    //Accelerometer is disengaged, 
+    // when button is released, that is the new "zero" position
+    ignoreacc = true;
+  } else if(button1val == 2 && button2val == 3) {
+    //L2 + R3 crazy eyes
+    bbCrazyEyes();
   }
-  */
+
 }
 
 void heartbeatCallback()
@@ -262,26 +333,39 @@ void heartbeatCallback()
 
 void commonMovesCallback()
 {
+  if(ultimateaction == true)
+    return;
+    
   // 50% chance to move eyes every 500 ms
   if(random(100) > 50)
     moveEyesSlightly();
-  // 30% chance to wiggle ears
-  if(random(100) <= 33)
-    wiggleEars();
 }
 
 void moveHeadCallback()
 {
+  if(ignoreacc = true)
+    return;
   int xAxis = analogRead(ACC_X_INPUT_PIN);
   int yAxis = analogRead(ACC_Y_INPUT_PIN);
   int zAxis = analogRead(ACC_Z_INPUT_PIN);
+  //Low Pass Filter
+  xAcc = xAxis * alpha + (xAcc * (1.0 - alpha));
+  yAcc = yAxis * alpha + (yAcc * (1.0 - alpha));
+  zAcc = zAxis * alpha + (zAcc * (1.0 - alpha));
+  double roll = (atan2(-zAcc, xAcc)*180.0/PI);
+
+  if(roll <= HEADLR_MAX_ANGLE && roll >= HEADLR_MIN_ANGLE)
+    headLR.write(roll);
 }
 
 /*********** END CALLBACK FUNCTIONS *******************/
-/*********** HELPER FUNCTIONS *************************/
+
+/*********** HELPER/COMMON FUNCTIONS *************************/
 // Eye blink operation
 void blinkMeEyes()
 {
+  if(stopeyemoves == true)
+    return;
   eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
   eyeLidR.write(REYE_LID_CLOSE_ANGLE);
 	// Anything other than 150ms is too quick 
@@ -296,32 +380,13 @@ void blinkMeEyes()
 	int shallWeBlinkAgain = random(1000,2000);
 	if(shallWeBlinkAgain > 1500 && secondBlink == 1) {
 		secondBlink = 0;
-    eyeBrowU.write(100);
 		delay(40);
 		blinkMeEyes();
-    eyeBrowU.write(70);
-    
 	} else {
 		// There is a slight chance of shallWeBlinkAgain to be always
 		// Smaller than 1500 and it will keep on blinking it's eyes twice. 
 		secondBlink = 1;
 	}
-}
-
-// Read audio, and map it to the mouth
-// to give a talking impression
-void talkWithAnalogInput()
-{
-  audioVal = analogRead(AUDIO_INPUT_PIN);
-  
-  Serial.print("Audio Val: ");
-  Serial.println(audioVal);
-  
-  outputVal = map(audioVal, 520, 1023, MOUTH_MIN_ANGLE, MOUTH_MAX_ANGLE);
-  outputVal = abs(outputVal);
-  mouthUD.write(outputVal);
-  Serial.print("Mouth: ");
-  Serial.println(outputVal); 
 }
 
 // Move eyes slightly to left and right
@@ -345,34 +410,92 @@ void moveEyesSlightly()
   rEyeLR.write(curREyeAngle);
 }
 
-// func name self explanatory
-void wiggleEars()
+/********** end HELPER functions *************/
+/********** Facial Expressions ***********/
+void bbNeutral()
+{
+  return;
+}
+
+// Both ears spin
+// Called when L1 is pressed
+void bbEarSpin()
 {
   ears.write(EARS_FINAL_ANGLE);
   delay(150);
   ears.write(EARS_INITIAL_ANGLE); 
 }
 
-void bbNeutral()
+// Open Mouth
+// Called when L2 is pressed
+void bbMouthOpen()
 {
-  
+  Wire.beginTransmission(1);
+  Wire.write(1);
+  Wire.endTransmission();
 }
-void bbAfraid()
+
+//Mouth and eyes open wide, eye brows up, pointing up
+// Called when L2 is pressed
+void bbFear()
 {
 
 }
-void bbHappy()
+
+//mouth smiles, one eye shut, other eye brow points upwards
+// Called when R1 is pressed
+void bbWink()
 {
   
 }
 
-void bbCross()
+// eyes slightly closed
+// Called when R2 is pressed
+void bbFrown()
 {
   
 }
-void bbSad()
+
+// lips pursed, eye brows low, eyes slightly closed
+// Called when R3 is pressed
+void bbWhistle()
 {
   
 }
-/*************** END HELPER FUNCTIONS *********************/
+
+//heart beat slows, erratic, eyes flicker open and close, 
+//finally slowly close, eye brows go high then slowly lower,
+// head tilts down - if servo works!
+// Called when L3+R3 are pressed
+void bbDie()
+{
+  ultimateaction = true;
+  Wire.beginTransmission(1);
+  Wire.write(1);
+  Wire.endTransmission();
+}
+
+// eyes look left and right together
+// Called when L1+R1 are pressed
+void bbSearch()
+{
+  stopeyemoves = true;
+  delay(200);
+  stopeyemoves = false;
+}
+
+//smile, eye brows raise 3 times in succession, 
+//finish with a single wink
+// Called when L1+R2 are pressed
+void bbimCool()
+{
+  
+}
+
+void bbCrazyEyes()
+{
+  // Eyes, eyelids and eyebrows move wildly and independently
+
+}
+/*************** END FACIAL EXPRESSIONS *********************/
 

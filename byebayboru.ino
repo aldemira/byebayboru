@@ -81,8 +81,8 @@ byte LEYE_LID_OPEN_ANGLE = 70;
 byte LEYE_LID_CLOSE_ANGLE = 85;
 byte REYE_LID_OPEN_ANGLE = 50;
 byte REYE_LID_CLOSE_ANGLE = 60;
-byte MOUTH_MIN_ANGLE = 5;
-byte MOUTH_MAX_ANGLE = 25;
+byte MOUTHUD_MIN_ANGLE = 5;
+byte MOUTHUD_MAX_ANGLE = 25;
 byte MOUTHL_NEUTRAL_ANGLE = 90;
 byte MOUTHR_NEUTRAL_ANGLE = 90;
 byte MOUTHL_SMILE_ANGLE = 45;
@@ -108,10 +108,6 @@ const int rightThreshold = 350;
 /**** END Accelerometer Thresholds ****/
 
 /***** End Configurable Stuff *****/
-
-int audioVal;
-int outputVal;
-
 // Servo definitions
 Servo rEyeLR;
 Servo lEyeLR;
@@ -137,6 +133,7 @@ Thread buttonTh = Thread();
 Thread commonMovesTh = Thread();
 Thread blinkTh = Thread();
 Thread moveHeadTh = Thread();
+Thread talkTh = Thread();
 ThreadController control1 = ThreadController();
 
 
@@ -178,8 +175,8 @@ bool wink = false;
 bool frown = false;
 bool whistle = false;
 bool search = false;
-bool cool = false;
 bool crazy = false;
+bool lie = false;
 bool stoptalking = false;
 bool stopeyes = false;
 bool stopblinking = false;
@@ -220,11 +217,15 @@ void setup()
   moveHeadTh.onRun(moveHeadCallback);
   moveHeadTh.setInterval(300);
 
+  talkTh.onRun(talkCallback);
+  talkTh.setInterval(100);
+
   //thread group definition
   control1.add(&heartbeatTh);
   control1.add(&buttonTh);  
   control1.add(&commonMovesTh);
   control1.add(&blinkTh);
+  control1.add(&talkTh);
   control1.add(&moveHeadTh);
     
   //Servo setups
@@ -236,6 +237,7 @@ void setup()
   eyeLidR.attach(EYE_LID_R, min_pulse, max_pulse);
   mouthR.attach(MOUTH_R, min_pulse, max_pulse);
   mouthL.attach(MOUTH_L, min_pulse, max_pulse);
+  mouthUD.attach(MOUTH_UD, min_pulse, max_pulse);
   headUD.attach(HEAD_UD, min_pulse, max_pulse);
   headLR.attach(HEAD_LR, min_pulse, max_pulse);
   eyeBrowR.attach(EYE_BROW_R, min_pulse, max_pulse);
@@ -245,10 +247,6 @@ void setup()
   
   //servo initial positions
   bbNeutral();
- 
-
-  // Servo Arduino communications
-  Wire.begin();
 }
 
 void loop()
@@ -258,6 +256,17 @@ void loop()
 }
 
 /**************** CALLBACK FUNCTIONS *************/
+void talkCallback()
+{
+  if(stoptalking == true)
+    return;
+    
+  int audioVal, outputVal;
+  audioVal = analogRead(AUDIO_INPUT_PIN);
+  outputVal = abs(map(audioVal, 520, 1023, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE));   
+  mouthUD.write(outputVal);
+}
+
 void buttonHandler()
 {
   if(ultimateaction == true) //Bye boru's dying just return 
@@ -266,10 +275,10 @@ void buttonHandler()
   int button1Aval = 0, button2Aval = 0;
   byte button1val = 0, button2val = 0; 
   
-
   button1Aval = analogRead(BUTTON1_INPUT_PIN);
   button2Aval = analogRead(BUTTON2_INPUT_PIN);
 
+  //Map analog values to buttons 1,2,3
   if(button1Aval >= 200 && button1Aval <= 210)
     button1val = 1;
   else if(button1Aval >= 505 && button1Aval <=515)
@@ -285,12 +294,14 @@ void buttonHandler()
     button2val = 3;
 
   // This is gonna be ugly
+  // These are the button combinations
   if(button1val == 0 && button2val == 0) {
     // Handle action when buttons are released
     if(ignoreacc == true) {
       ignoreacc = false;
       // XXX Set new acc values here
     }
+    
     if(mouthopen == true)
       bbMouthOpen(false);
    
@@ -305,14 +316,16 @@ void buttonHandler()
       
     if(search == true)
       bbSearch(false);
-    if(cool == true)
-      bbimCool(false);
       
     if(crazy == true) {
       crazy = false;
       bbNeutral();
     }
-  
+
+    if(lie == true) {
+      lie = false;
+      bbLie(false);
+    }
   } else if(button1val == 1 && button2val == 0) {
     //L1 single press
     bbEarSpin();
@@ -345,8 +358,7 @@ void buttonHandler()
     bbSearch(true);
   } else if(button1val == 1 && button2val == 2) {
     //L1 + R2 I'm the man
-    if(cool == false)
-      bbimCool(true);
+    bbimCool();
   } else if(button1val == 1 && button2val == 3) {
     // L1 + R3 reset accelerometer
     //Accelerometer is disengaged, 
@@ -355,6 +367,11 @@ void buttonHandler()
   } else if(button1val == 2 && button2val == 3) {
     //L2 + R3 crazy eyes
     bbCrazyEyes();
+  } else if(button1val == 2 && button2val == 2) {
+    //L2 + R2 Neutral face
+    bbNeutral();
+  } else if(button1val == 2 && button2val == 1) {
+    bbLie(true);
   }
 
 }
@@ -393,11 +410,11 @@ void moveHeadCallback()
   if(ignoreacc = true)
     return;
   int xAxis = analogRead(ACC_X_INPUT_PIN);
-  int yAxis = analogRead(ACC_Y_INPUT_PIN);
+  //int yAxis = analogRead(ACC_Y_INPUT_PIN);
   int zAxis = analogRead(ACC_Z_INPUT_PIN);
   //Low Pass Filter
   xAcc = xAxis * alpha + (xAcc * (1.0 - alpha));
-  yAcc = yAxis * alpha + (yAcc * (1.0 - alpha));
+  //yAcc = yAxis * alpha + (yAcc * (1.0 - alpha));
   zAcc = zAxis * alpha + (zAcc * (1.0 - alpha));
   double roll = (atan2(-zAcc, xAcc)*180.0/PI);
 
@@ -473,6 +490,7 @@ void bbNeutral()
   eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
   eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
   eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
+  stoptalking = true;
 }
 
 // Both ears spin
@@ -624,7 +642,7 @@ void bbSearch(bool fstatus)
     rEyeLR.write(120);
     delay(300);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
-    rEyeLR.write(LEYE_LR_INITIAL_ANGLE);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE);
   } else if(fstatus == false && search == true) {
     stopeyes = false;
   } 
@@ -633,9 +651,8 @@ void bbSearch(bool fstatus)
 //smile, eye brows raise 3 times in succession, 
 //finish with a single wink
 // Called when L1+R2 are pressed
-void bbimCool(bool fstatus)
+void bbimCool()
 {
-  if(fstatus == true && cool == false) {
     stopeyes = true;
     bbSmile(true);
     for(int i=0;i<3;i++) {
@@ -646,13 +663,14 @@ void bbimCool(bool fstatus)
     eyeLidR.write(REYE_LID_CLOSE_ANGLE);
     delay(150);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-  } else if(fstatus == false && cool == true) {
-    stopeyes = false;
+    delay(50);
     bbSmile(false);
-  }
-  
+    stopeyes = false;
 }
 
+// Eyes, eyelids and eyebrows 
+// move wildly and independently
+// Called when L2+R3 are pressed
 void bbCrazyEyes()
 {
   crazy = true;
@@ -678,7 +696,30 @@ void bbCrazyEyes()
   eyeBrowR.write(reyebangle);
 }
 
+// eyes look left, then right together, 
+// but are looking down
+// Called when L2 + R1 are pressed
+void bbLie(bool fstatus)
+{
+  if(fstatus == true && lie == false) {
+    lEyeLR.write(60);
+    rEyeLR.write(60);
+    lEyeUD.write(120);
+    rEyeUD.write(120);
+    delay(200);
+    lEyeLR.write(120);
+    rEyeLR.write(120);
+    delay(200);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE);
+  } else if(fstatus == false && lie == true) {
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE);
+  }
+}
+
 // If true => then smile, false => then be neutral
+// This isn't called by any button presses yet
 void bbSmile(bool fstatus)
 {
   if(fstatus == true) {

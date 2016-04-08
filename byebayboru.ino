@@ -40,9 +40,17 @@
   PIN 13 -> LED Heart
   PIN 45 -> Eye brow up
   PIN 46 -> Mouth UP Down
-*/
-/***** CONFIGURABLE PARAMETERS *****/
-/**** PIN definitions as stated above ****/
+  APIN 0 -> Sound input
+  APIN 2 -> Accelerometer X
+  APIN 3 -> Accelerometer Y
+  APIN 4 -> Accelerometer Z
+  APIN 5 -> Button Set 1
+  APIN 6 -> Button Set 2
+******* END PIN LAYOUTS *********************
+*********************************************
+******* CONFIGURABLE PARAMETERS *************
+*********************************************
+******* PIN definitions as stated above ****/
 #define R_EYE_UD 2
 #define L_EYE_UD 1
 #define L_EYE_LR 3
@@ -59,10 +67,8 @@
 #define EYE_BROW_UD 45
 #define MOUTH_UD 46
 #define HEART_LED 13
-/**** End Servo PIN definitions ****/
-
-
-/**** Audio INPUT PIN definition (Mono) ****/
+/**** End Servo PIN definitions ****
+***** Audio INPUT PIN definition (Mono) ****/
 #define AUDIO_INPUT_PIN A0
 /**** Accelerometer INPUTS ****/
 #define ACC_X_INPUT_PIN A2
@@ -71,18 +77,19 @@
 /***** Button Inputs *******/
 #define BUTTON1_INPUT_PIN A5
 #define BUTTON2_INPUT_PIN A6
-/****** Button Inputs ******/
-/**** End INPUT PIN definitions ****/
-
-/**** INITIAL Servo Angle Definitions ****/
+/***** End Button Inputs ******************
+*******************************************
+***** End INPUT PIN definitions ***********
+*******************************************
+***** INITIAL Servo Angle Definitions ****/
 static byte LEYE_LID_INITIAL_ANGLE = 70;
 static byte REYE_LID_INITIAL_ANGLE = 50;
-byte LEYE_LID_OPEN_ANGLE = 70;
+byte LEYE_LID_OPEN_ANGLE = 65;
 byte LEYE_LID_CLOSE_ANGLE = 85;
-byte REYE_LID_OPEN_ANGLE = 50;
+byte REYE_LID_OPEN_ANGLE = 40;
 byte REYE_LID_CLOSE_ANGLE = 60;
-byte MOUTHUD_MIN_ANGLE = 5;
-byte MOUTHUD_MAX_ANGLE = 25;
+byte MOUTHUD_MIN_ANGLE = 95;
+byte MOUTHUD_MAX_ANGLE = 125;
 byte MOUTHL_NEUTRAL_ANGLE = 90;
 byte MOUTHR_NEUTRAL_ANGLE = 90;
 byte MOUTHL_SMILE_ANGLE = 45;
@@ -98,16 +105,15 @@ byte LEYE_LR_INITIAL_ANGLE = 90;
 byte REYE_LR_INITIAL_ANGLE = 90;
 byte LEYE_UD_INITIAL_ANGLE = 90;
 byte REYE_UD_INITIAL_ANGLE = 90;
-byte EYEBROW_UD_INITIAL_ANGLE = 20;
-/**** End Angle Definitions ****/
-/**** Accelerometer Thresholds ****/
+byte EYEBROW_UD_INITIAL_ANGLE = 60;
+/**** End Angle Definitions ********
+***** Accelerometer Thresholds ****/
 const int forwardThreshold = 340;
 const int backwardThreshold = 330;
 const int leftThreshold = 360;
 const int rightThreshold = 350;
-/**** END Accelerometer Thresholds ****/
-
-/***** End Configurable Stuff *****/
+/**** END Accelerometer Thresholds ****
+****** End Configurable Stuff *********/
 // Servo definitions
 Servo rEyeLR;
 Servo lEyeLR;
@@ -247,6 +253,8 @@ void setup()
   
   //servo initial positions
   bbNeutral();
+
+  Serial.begin(9600);
 }
 
 void loop()
@@ -265,6 +273,8 @@ void talkCallback()
   audioVal = analogRead(AUDIO_INPUT_PIN);
   outputVal = abs(map(audioVal, 520, 1023, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE));   
   mouthUD.write(outputVal);
+  
+  
 }
 
 void buttonHandler()
@@ -490,6 +500,8 @@ void bbNeutral()
   eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
   eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
   eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
+  mouthL.write(MOUTHL_NEUTRAL_ANGLE);
+  mouthR.write(MOUTHR_NEUTRAL_ANGLE);
   stoptalking = true;
 }
 

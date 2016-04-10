@@ -82,8 +82,16 @@
 ***** End INPUT PIN definitions ***********
 *******************************************
 ***** INITIAL Servo Angle Definitions ****/
-static byte LEYE_LID_INITIAL_ANGLE = 70;
-static byte REYE_LID_INITIAL_ANGLE = 50;
+static byte LEYE_LID_INITIAL_ANGLE = 65;
+static byte REYE_LID_INITIAL_ANGLE = 40;
+static byte EYEBROW_L_INITIAL_ANGLE = 90;
+static byte EYEBROW_R_INITIAL_ANGLE = 90;
+static byte LEYE_LR_INITIAL_ANGLE = 90;
+static byte REYE_LR_INITIAL_ANGLE = 90;
+static byte LEYE_UD_INITIAL_ANGLE = 90;
+static byte REYE_UD_INITIAL_ANGLE = 90;
+static byte EYEBROW_UD_INITIAL_ANGLE = 60;
+
 byte LEYE_LID_OPEN_ANGLE = 65;
 byte LEYE_LID_CLOSE_ANGLE = 85;
 byte REYE_LID_OPEN_ANGLE = 40;
@@ -94,18 +102,14 @@ byte MOUTHL_NEUTRAL_ANGLE = 90;
 byte MOUTHR_NEUTRAL_ANGLE = 90;
 byte MOUTHL_SMILE_ANGLE = 45;
 byte MOUTHR_SMILE_ANGLE = 120;
+byte MOUTHL_FROWN_ANGLE = 120;
+byte MOUTHR_FROWN_ANGLE = 45;
 byte INITIAL_EYE_LR_ANGLE = 90;
 byte EARS_INITIAL_ANGLE = 90;
 byte EARS_FINAL_ANGLE = 120;
 byte HEADLR_MIN_ANGLE = 30;
 byte HEADLR_MAX_ANGLE = 90;
-byte EYEBROW_L_INITIAL_ANGLE = 90;
-byte EYEBROW_R_INITIAL_ANGLE = 90;
-byte LEYE_LR_INITIAL_ANGLE = 90;
-byte REYE_LR_INITIAL_ANGLE = 90;
-byte LEYE_UD_INITIAL_ANGLE = 90;
-byte REYE_UD_INITIAL_ANGLE = 90;
-byte EYEBROW_UD_INITIAL_ANGLE = 60;
+
 /**** End Angle Definitions ********
 ***** Accelerometer Thresholds ****/
 const int forwardThreshold = 340;
@@ -186,6 +190,12 @@ bool lie = false;
 bool stoptalking = false;
 bool stopeyes = false;
 bool stopblinking = false;
+bool smile = false;
+bool anger = false;
+bool bigsmile = false;
+bool thinking = false;
+bool notsure = false;
+bool raiseeyebrows = false;
 /**** End information variable ****/
 // Accelerometer Parameters
 //float xZero = 319;
@@ -272,9 +282,7 @@ void talkCallback()
   int audioVal, outputVal;
   audioVal = analogRead(AUDIO_INPUT_PIN);
   outputVal = abs(map(audioVal, 520, 1023, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE));   
-  mouthUD.write(outputVal);
-  
-  
+  mouthUD.write(outputVal); 
 }
 
 void buttonHandler()
@@ -311,7 +319,12 @@ void buttonHandler()
       ignoreacc = false;
       // XXX Set new acc values here
     }
-    
+    if(anger == true)
+      bbAnger(false);
+      
+    if(bigsmile == true)
+      bbBigSmile(false);
+      
     if(mouthopen == true)
       bbMouthOpen(false);
    
@@ -326,6 +339,12 @@ void buttonHandler()
       
     if(search == true)
       bbSearch(false);
+
+    if(thinking == true)
+      bbThink(false);
+      
+    if(notsure == true)
+      bbNotSure(false);
       
     if(crazy == true) {
       crazy = false;
@@ -338,10 +357,11 @@ void buttonHandler()
     }
   } else if(button1val == 1 && button2val == 0) {
     //L1 single press
-    bbEarSpin();
+    if(anger == false)
+      bbAnger(true);
   } else if(button1val == 2 && button2val == 0) {
     //L2 single press
-    // Don't try to 
+    // Don't try to exec again
     if(fear == false)
       bbFear(true);
   } else if(button1val == 3 && button2val == 0) {
@@ -349,12 +369,12 @@ void buttonHandler()
     bbMouthOpen(true);
   } else if(button2val == 1 && button1val == 0) {
     //R1 single press
-    if(wink == false)
-      bbWink(true);
+    if(thinking == false)
+      bbThink(true);
   } else if(button2val == 2 && button1val == 0) {
     //R2 single press
-    if(frown == false)
-      bbFrown(true);
+    if(notsure == false)
+      bbNotSure(true);
   } else if(button2val == 3 && button1val == 0) {
     //R3 single press
     if(whistle == false)
@@ -381,7 +401,15 @@ void buttonHandler()
     //L2 + R2 Neutral face
     bbNeutral();
   } else if(button1val == 2 && button2val == 1) {
-    bbLie(true);
+    //L2 + R1 Big smile
+    if(bigsmile == true)
+      bbBigSmile(true);
+    //bbLie(true);
+  } else if(button1val == 3 && button2val == 1) {
+    if(smile == true)
+      bbSmile(true);
+  } else if(button1val == 3 && button2val == 2) {
+      bbRaiseEyeB();
   }
 
 }
@@ -505,6 +533,122 @@ void bbNeutral()
   stoptalking = true;
 }
 
+//Eyebrows raised, point down,
+//lips down (frown)
+// Called when L1 is pressed
+void bbAnger(bool fstatus)
+{
+  if(fstatus == true && anger == false) {
+    mouthL.write(MOUTHL_FROWN_ANGLE);
+    mouthR.write(MOUTHR_FROWN_ANGLE);
+    eyeBrowL.write(60);
+    eyeBrowR.write(60);
+    eyeBrowU.write(120);
+  } else if(fstatus == false && anger == true) {
+    anger == false;
+    eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
+    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
+    mouthL.write(MOUTHL_NEUTRAL_ANGLE);
+    mouthR.write(MOUTHR_NEUTRAL_ANGLE);
+  }
+  
+}
+
+//Eyes look up to the left, eye balls 60% open
+// called when R1 is pressed
+void bbThink(bool fstatus)
+{
+  if(fstatus == true && thinking == false) {
+    LEYE_LID_OPEN_ANGLE = 60;
+    REYE_LID_OPEN_ANGLE = 35;
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    lEyeUD.write(100);
+    rEyeUD.write(100);
+    lEyeLR.write(100);
+    rEyeLR.write(100);
+  } else if(fstatus == false && thinking == true) {
+    thinking = false;
+    LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
+    REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE);
+  }
+}
+
+//Open mouth, smile, eyebrows up, pointing up
+// Called when L2 + R1 is pressed
+void bbBigSmile(bool fstatus)
+{
+  if(fstatus == true && bigsmile == false) {
+    bbMouthOpen(true);
+    eyeBrowL.write(120);
+    eyeBrowR.write(120);
+    eyeBrowU.write(120);
+    bbSmile(true);
+  } else if(fstatus == false && bigsmile == true) {
+    bigsmile = false;
+    bbMouthOpen(false);
+    bbSmile(false);
+    eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
+    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
+  }
+  
+}
+
+//Eyebrows down, pointing down, 
+//eyes slowly look left and right,
+//while looking down
+// Called when R2 is pressed
+void bbNotSure(bool fstatus)
+{
+  int tempvar;
+  if(fstatus == true && notsure == false) {
+    eyeBrowU.write(45);
+    eyeBrowL.write(60);
+    eyeBrowR.write(60);
+    for(int i=90;i=i-10;i>59) {
+      eyeBrowL.write(i);
+      eyeBrowR.write(i);
+      delay(20);
+    }
+    delay(50);
+    for(int i=tempvar;i=i+10;i<121) {
+      eyeBrowL.write(i);
+      eyeBrowR.write(i);
+      delay(20);
+    }   
+  } else if(fstatus == false && notsure == true) {
+    notsure = false;
+    eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
+    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
+  }
+}
+
+//Eyebrows keep going up and down, at the top, they twitch
+void bbRaiseEyeB()
+{
+  for(int i=90;i=i-10;i>59) {
+      eyeBrowU.write(i); 
+      delay(20);  
+  }
+  eyeBrowL.write(80);
+  eyeBrowR.write(80);
+  delay(150);
+  eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
+  eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+  for(int i=60;i=i+10;i<91) {
+    eyeBrowU.write(i);
+    delay(20);
+  }
+}
 // Both ears spin
 // Called when L1 is pressed
 void bbEarSpin()
@@ -536,6 +680,8 @@ void bbFear(bool fstatus)
   if(fstatus == true && fear == false) {
     fear = true;
     stoptalking = true;
+    // Set open angles to new values 
+    // so we can continue blinking
     LEYE_LID_OPEN_ANGLE = 60;
     REYE_LID_OPEN_ANGLE = 40;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);

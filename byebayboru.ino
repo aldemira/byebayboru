@@ -317,8 +317,10 @@ void buttonHandler()
     // Handle action when buttons are released
     if(ignoreacc == true) {
       ignoreacc = false;
-      // XXX Set new acc values here
+      xAcc = 0;
+      zAcc = 0;
     }
+    
     if(anger == true)
       bbAnger(false);
       
@@ -530,7 +532,7 @@ void bbNeutral()
   eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
   mouthL.write(MOUTHL_NEUTRAL_ANGLE);
   mouthR.write(MOUTHR_NEUTRAL_ANGLE);
-  stoptalking = true;
+  stoptalking = false;
 }
 
 //Eyebrows raised, point down,

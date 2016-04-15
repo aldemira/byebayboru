@@ -207,6 +207,8 @@ double yAcc = 0;
 double zAcc = 0;
 const float alpha = 1.5;
 
+//
+bool enableheadmoves = true;
 
 void setup()
 {
@@ -225,8 +227,10 @@ void setup()
   buttonTh.onRun(buttonHandler);
   buttonTh.setInterval(500);
 
-  commonMovesTh.onRun(commonMovesCallback);
-  commonMovesTh.setInterval(500);
+  if(enableheadmoves == true) {
+    commonMovesTh.onRun(commonMovesCallback);
+    commonMovesTh.setInterval(500);
+  }
 
   blinkTh.onRun(blinkMeEyes);
   blinkTh.setInterval(3000);
@@ -235,15 +239,16 @@ void setup()
   moveHeadTh.setInterval(200);
 
   talkTh.onRun(talkCallback);
-  talkTh.setInterval(100);
+  talkTh.setInterval(200);
 
   //thread group definition
   control1.add(&heartbeatTh);
   control1.add(&buttonTh);  
-  control1.add(&commonMovesTh);
   control1.add(&blinkTh);
   control1.add(&talkTh);
   control1.add(&moveHeadTh);
+  if(enableheadmoves == true)
+    control1.add(&commonMovesTh);
     
   //Servo setups
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);

@@ -153,6 +153,7 @@ byte secondBlink = 0;
 int blinkinterval = 3000;
 // ms to increase the voltage on the heartbeat led
 int heartbeatDelay = 50;
+int heartbeatDelaytmp = heartbeatDelay;
 // Timer storage
 int lastBlinkTime = 0;
 int lastEyeMovement = 0;
@@ -178,7 +179,7 @@ bool ultimateaction = false;
 
 // Accelerometer will be disengaged if true
 bool ignoreacc = false;
-/**** Information variables ****/
+/**** Face expression state  variables ****/
 bool mouthopen = false;
 bool fear = false;
 bool wink = false;
@@ -196,7 +197,8 @@ bool bigsmile = false;
 bool thinking = false;
 bool notsure = false;
 bool raiseeyebrows = false;
-/**** End information variable ****/
+bool stopheart = false;
+/**** End Face expression state variables ****/
 // Accelerometer Parameters
 //float xZero = 319;
 //float yZero = 337;
@@ -207,8 +209,8 @@ double yAcc = 0;
 double zAcc = 0;
 const float alpha = 1.5;
 
-//
-bool enableheadmoves = true;
+// Make this false to stop random eyemovements
+bool enableeyemovements = true;
 
 void setup()
 {
@@ -227,10 +229,7 @@ void setup()
   buttonTh.onRun(buttonHandler);
   buttonTh.setInterval(500);
 
-  if(enableheadmoves == true) {
-    commonMovesTh.onRun(commonMovesCallback);
-    commonMovesTh.setInterval(500);
-  }
+
 
   blinkTh.onRun(blinkMeEyes);
   blinkTh.setInterval(3000);
@@ -240,15 +239,19 @@ void setup()
 
   talkTh.onRun(talkCallback);
   talkTh.setInterval(200);
-
+  
+  if(enableeyemovements == true) {
+    commonMovesTh.onRun(commonMovesCallback);
+    commonMovesTh.setInterval(500);
+    control1.add(&commonMovesTh);
+  }
+  
   //thread group definition
   control1.add(&heartbeatTh);
   control1.add(&buttonTh);  
   control1.add(&blinkTh);
   control1.add(&talkTh);
   control1.add(&moveHeadTh);
-  if(enableheadmoves == true)
-    control1.add(&commonMovesTh);
     
   //Servo setups
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);
@@ -370,11 +373,11 @@ void buttonHandler()
       lie = false;
       bbLie(false);
     }
-  } else if(button2val == 3 && button1val == 3) {
+  } else if(button1val == 3 && button2val == 3) {
     //L3 + R3 bb dies
     // No return back from this point
     bbDie();
-  } else if(button2val == 1 && button1val == 1) {
+  } else if(button1val == 1 && button2val == 1) {
     //L1 + R1 searching eyes
     bbSearch(true);
   } else if(button1val == 1 && button2val == 2) {
@@ -395,7 +398,6 @@ void buttonHandler()
     //L2 + R1 Big smile
     if(bigsmile == true)
       bbBigSmile(true);
-    //bbLie(true);
   } else if(button1val == 3 && button2val == 1) {
     if(smile == true)
       bbSmile(true);
@@ -432,6 +434,10 @@ void buttonHandler()
 
 void heartbeatCallback()
 {
+  if(stopheart == true) {
+    analogWrite(HEART_LED, 0);
+    return;
+  }
    if(invert == 0) {
     for (int i=0; i<heartbeatStep; i++) {
       analogWrite(HEART_LED, brightness);
@@ -586,10 +592,10 @@ void bbThink(bool fstatus)
     REYE_LID_OPEN_ANGLE = 35;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    lEyeUD.write(100);
-    rEyeUD.write(100);
-    lEyeLR.write(100);
-    rEyeLR.write(100);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-20);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
     thinking = false;
@@ -612,9 +618,9 @@ void bbBigSmile(bool fstatus)
   if(fstatus == true && bigsmile == false) {
     bigsmile = true;
     bbMouthOpen(true);
-    eyeBrowL.write(120);
-    eyeBrowR.write(120);
-    eyeBrowU.write(60);
+    eyeBrowU.write(75);
+    eyeBrowL.write(125);
+    eyeBrowR.write(65);
     bbSmile(true);
     Serial.println("BB big smile");
   } else if(fstatus == false && bigsmile == true) {
@@ -639,15 +645,15 @@ void bbNotSure(bool fstatus)
   if(fstatus == true && notsure == false) {
     notsure = true;
     //eyeBrowU.write(45);
-    eyeBrowL.write(120);
-    eyeBrowR.write(65);
+    eyeBrowL.write(60);
+    eyeBrowR.write(115);
     for(int i=90;i=i-10;i>59) {
       lEyeLR.write(i);
       rEyeLR.write(i);
       delay(20);
     }
     delay(50);
-    for(int i=tempvar;i=i+10;i<121) {
+    for(int i=60;i=i+10;i<121) {
       rEyeLR.write(i);
       lEyeLR.write(i);
       delay(20);
@@ -668,19 +674,19 @@ void bbNotSure(bool fstatus)
 void bbRaiseEyeB()
 {
   Serial.println("BB raise eyes");
-  for(int i=90;i=i-10;i>59) {
-      eyeBrowU.write(i); 
-      delay(20);  
-  }
+  eyeBrowU.write(75); 
+  eyeBrowL.write(80);
+  eyeBrowR.write(80);
+  delay(50);
+  eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
+  eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+  delay(50);
   eyeBrowL.write(80);
   eyeBrowR.write(80);
   delay(150);
   eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
   eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
-  for(int i=60;i=i+10;i<91) {
-    eyeBrowU.write(i);
-    delay(20);
-  }
+  eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
 }
 // Both ears spin
 void bbEarSpin()
@@ -712,6 +718,7 @@ void bbFear(bool fstatus)
   if(fstatus == true && fear == false) {
     fear = true;
     stoptalking = true;
+    heartbeatDelay = heartbeatDelay/2;
     // Set open angles to new values 
     // so we can continue blinking
     LEYE_LID_OPEN_ANGLE = 50;
@@ -723,6 +730,7 @@ void bbFear(bool fstatus)
     eyeBrowR.write(65);
     Serial.println("BB in fear");
   } else if(fstatus == false && fear == true) {
+    heartbeatDelay = heartbeatDelaytmp;
     fear = false;
     stoptalking = false;
     LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
@@ -743,7 +751,7 @@ void bbWink(bool fstatus)
     wink = true;
     stopblinking = true;
     eyeLidR.write(REYE_LID_CLOSE_ANGLE);
-    eyeBrowL.write(45);
+    eyeBrowL.write(115);
     bbSmile(true);
   } else if(fstatus == false && wink == true) {
     wink = false;
@@ -755,22 +763,7 @@ void bbWink(bool fstatus)
   
 }
 
-// eyes slightly closed
-// Called when R2 is pressed
-void bbFrown(bool fstatus)
-{
-  if(fstatus == true && frown == false) {
-    LEYE_LID_OPEN_ANGLE = 60;
-    REYE_LID_OPEN_ANGLE = 40;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
-  } else if(fstatus == false && frown == true) {
-    LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
-    REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
-  }
-}
+
 
 // lips pursed, eye brows low, eyes slightly closed
 // Called when R3 is pressed
@@ -808,11 +801,9 @@ void bbWhistle(bool fstatus)
 void bbDie()
 {
   ultimateaction = true;
+  heartbeatDelay = heartbeatDelay*2;
   // Close mouth
   mouthUD.write(5);
-  // Adjust hearbeat, how?? when this is working
-  // Thread will not be switched to another one (or will it)
-  heartbeatDelay = 100;
   // Flicker eyes
   for(int i=0; i<5; i++) {
     lEyeLR.write(60);
@@ -836,11 +827,12 @@ void bbDie()
   }  
   
   // Eye brows go up and slowly down
-  eyeBrowU.write(40);
-  for(int i=40;; i--) {
+  eyeBrowU.write(75);
+  for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i--) {
     eyeBrowU.write(i);
     delay(100);
   }
+  stopheart = true;
 }
 
 // eyes look left and right together
@@ -874,7 +866,7 @@ void bbimCool()
     stopeyes = true;
     bbSmile(true);
     for(int i=0;i<3;i++) {
-      eyeBrowU.write(40);
+      eyeBrowU.write(75);
       delay(150);
       eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
     }
@@ -919,17 +911,35 @@ void bbCrazyEyes()
   Serial.println("I'm going slightly mad!");
 }
 
+// If true => then smile, false => then be neutral
+// Called when L3+R1 is pressed
+void bbSmile(bool fstatus)
+{
+  if(fstatus == true && smile == false) {
+    smile = true;
+    stoptalking = true;
+    mouthR.write(MOUTHR_SMILE_ANGLE);
+    mouthL.write(MOUTHL_SMILE_ANGLE);
+    Serial.println("BB small smile");
+  } else if(fstatus == false && smile == true) {
+    smile = false;
+    stoptalking = false;
+    mouthL.write(MOUTHL_NEUTRAL_ANGLE);
+    mouthR.write(MOUTHR_NEUTRAL_ANGLE);
+    Serial.println("BB don't smile");
+  }
+}
 // eyes look left, then right together, 
 // but are looking down
-// Called when L2 + R1 are pressed
+// Not called
 void bbLie(bool fstatus)
 {
   if(fstatus == true && lie == false) {
     lie = true;
     lEyeLR.write(60);
     rEyeLR.write(60);
-    lEyeUD.write(120);
-    rEyeUD.write(120);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
     delay(200);
     lEyeLR.write(120);
     rEyeLR.write(120);
@@ -943,17 +953,22 @@ void bbLie(bool fstatus)
   }
 }
 
-// If true => then smile, false => then be neutral
-// This isn't called by any button presses yet
-void bbSmile(bool fstatus)
+
+
+// eyes slightly closed
+// Not called currently
+void bbFrown(bool fstatus)
 {
-  if(fstatus == true) {
-      // XXX find right angles here
-    mouthR.write(MOUTHR_SMILE_ANGLE);
-    mouthL.write(MOUTHL_SMILE_ANGLE);
-  } else {
-    mouthL.write(MOUTHL_NEUTRAL_ANGLE);
-    mouthR.write(MOUTHR_NEUTRAL_ANGLE);
+  if(fstatus == true && frown == false) {
+    LEYE_LID_OPEN_ANGLE = 60;
+    REYE_LID_OPEN_ANGLE = 40;
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+  } else if(fstatus == false && frown == true) {
+    LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
+    REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE);
   }
 }
 /*************** END FACIAL EXPRESSIONS *********************/

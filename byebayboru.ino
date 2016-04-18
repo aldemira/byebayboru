@@ -109,6 +109,7 @@ byte EARS_INITIAL_ANGLE = 90;
 byte EARS_FINAL_ANGLE = 120;
 byte HEADLR_MIN_ANGLE = 30;
 byte HEADLR_MAX_ANGLE = 90;
+byte mouth_ud_step = 5;
 
 /**** End Angle Definitions ********
 ***** Accelerometer Thresholds ****/
@@ -647,13 +648,13 @@ void bbNotSure(bool fstatus)
     //eyeBrowU.write(45);
     eyeBrowL.write(60);
     eyeBrowR.write(115);
-    for(int i=90;i=i-10;i>59) {
+    for(int i=90;i>59;i=i-10) {
       lEyeLR.write(i);
       rEyeLR.write(i);
       delay(20);
     }
     delay(50);
-    for(int i=60;i=i+10;i<121) {
+    for(int i=60;i<121;i=i+10) {
       rEyeLR.write(i);
       lEyeLR.write(i);
       delay(20);
@@ -701,7 +702,7 @@ void bbEarSpin()
 void bbMouthOpen(bool fstatus)
 {
   if(fstatus == true && mouthopen == false) {
-    mouthopen =true;
+    mouthopen = true;
     stoptalking = true;
     mouthUD.write(120);
   } else if(fstatus == false && mouthopen == true) {
@@ -762,8 +763,6 @@ void bbWink(bool fstatus)
   }
   
 }
-
-
 
 // lips pursed, eye brows low, eyes slightly closed
 // Called when R3 is pressed
@@ -929,6 +928,7 @@ void bbSmile(bool fstatus)
     Serial.println("BB don't smile");
   }
 }
+
 // eyes look left, then right together, 
 // but are looking down
 // Not called

@@ -121,6 +121,8 @@ const int rightThreshold = 350;
 
 const int SILENT_AUDIO_VAL = 500;
 /****** End Configurable Stuff *********/
+
+void(* resetFunc) (void) = 0;//declare reset function at address 0
 // Servo definitions
 Servo rEyeLR;
 Servo lEyeLR;
@@ -220,7 +222,7 @@ bool enabledacccode = false;
 void setup()
 {
   // For debugging purposes
-  //Serial.begin(9600);
+  Serial.begin(9600);
   //SETUP heart
   pinMode(HEART_LED, OUTPUT);
   
@@ -278,8 +280,6 @@ void setup()
   
   //servo initial positions
   bbNeutral();
-
-  Serial.begin(9600);
 }
 
 void loop()
@@ -404,6 +404,7 @@ void buttonHandler()
     //Accelerometer is disengaged, 
     // when button is released, that is the new "zero" position
     ignoreacc = true;
+    resetFunc();
   } else if(button1val == 2 && button2val == 3) {
     //L2 + R3 crazy eyes
     bbCrazyEyes();

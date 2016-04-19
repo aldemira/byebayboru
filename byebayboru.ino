@@ -102,7 +102,7 @@ byte MOUTHL_NEUTRAL_ANGLE = 95;
 byte MOUTHR_NEUTRAL_ANGLE = 92;
 byte MOUTHL_SMILE_ANGLE = 45;
 byte MOUTHR_SMILE_ANGLE = 120;
-byte MOUTHL_FROWN_ANGLE = 120;
+byte MOUTHL_FROWN_ANGLE = 125;
 byte MOUTHR_FROWN_ANGLE = 45;
 byte INITIAL_EYE_LR_ANGLE = 90;
 byte EARS_INITIAL_ANGLE = 90;
@@ -351,9 +351,6 @@ void buttonHandler()
 
     if(frown == true)
       bbFrown(false);
-      
-    if(search == true)
-      bbSearch(false);
 
     if(thinking == true)
       bbThink(false);
@@ -363,8 +360,9 @@ void buttonHandler()
       
     if(mouthopen == true)
       bbMouthOpen(false);
-    if(crazy == true) {
+    if(crazy == true || search == true) {
       crazy = false;
+      search = false;
       bbNeutral();
     }
 
@@ -378,7 +376,7 @@ void buttonHandler()
     bbDie();
   } else if(button1val == 1 && button2val == 1) {
     //L1 + R1 searching eyes
-    bbSearch(true);
+    bbSearch();
   } else if(button1val == 1 && button2val == 2) {
     //L1 + R2 I'm the man
     bbimCool();
@@ -395,10 +393,10 @@ void buttonHandler()
     bbNeutral();
   } else if(button1val == 2 && button2val == 1) {
     //L2 + R1 Big smile
-    if(bigsmile == true)
+    if(bigsmile == false)
       bbBigSmile(true);
   } else if(button1val == 3 && button2val == 1) {
-    if(smile == true)
+    if(smile == false)
       bbSmile(true);
   } else if(button1val == 3 && button2val == 2) {
       bbRaiseEyeB();
@@ -587,14 +585,14 @@ void bbThink(bool fstatus)
 {
   if(fstatus == true && thinking == false) {
     thinking = true;
-    LEYE_LID_OPEN_ANGLE = 60;
-    REYE_LID_OPEN_ANGLE = 35;
+    LEYE_LID_OPEN_ANGLE = 70;
+    REYE_LID_OPEN_ANGLE = 50;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE-20);
-    rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE+20);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
     thinking = false;
@@ -649,13 +647,13 @@ void bbNotSure(bool fstatus)
     for(int i=90;i>59;i=i-10) {
       lEyeLR.write(i);
       rEyeLR.write(i);
-      delay(20);
+      delay(50);
     }
-    delay(50);
+    delay(100);
     for(int i=60;i<121;i=i+10) {
       rEyeLR.write(i);
       lEyeLR.write(i);
-      delay(20);
+      delay(100);
     }
     Serial.println("BB not sure");
   } else if(fstatus == false && notsure == true) {
@@ -834,25 +832,20 @@ void bbDie()
 
 // eyes look left and right together
 // Called when L1+R1 are pressed
-void bbSearch(bool fstatus)
+void bbSearch()
 {
-  if(fstatus == true && search == false) {
     stopeyes = true;
     search = true;
     lEyeLR.write(60);
-    rEyeLR.write(60);
+    rEyeLR.write(120);
     delay(300);
     lEyeLR.write(120);
-    rEyeLR.write(120);
+    rEyeLR.write(600);
     delay(300);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE);
     Serial.println("BB searches");
-  } else if(fstatus == false && search == true) {
     stopeyes = false;
-    search = false;
-    Serial.println("BB doesn't search");
-  } 
 }
 
 //smile, eye brows raise 3 times in succession, 
@@ -884,6 +877,7 @@ void bbCrazyEyes()
   crazy = true;
   stopblinking = true;
   stoptalking = true;
+  bbMouthOpen(true);
   byte leyeangle, reyeangle, leyerlangle, reyerlangle;
   byte leyeudangle, reyeudangle, leyebangle, reyebangle;
   byte leyelangle, reyelangle;

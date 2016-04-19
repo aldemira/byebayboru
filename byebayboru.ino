@@ -292,10 +292,14 @@ void talkCallback()
   int audioVal, outputVal;
   audioVal = analogRead(AUDIO_INPUT_PIN);
   audioVal = abs(audioVal - SILENT_AUDIO_VAL);
-  // range of abs(audioVal) seems to go from between 5 and 350 or so
-  outputVal = map(audioVal,5,350, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
-  // make sure the mouth angle can't go beyond the MIN and MAX angles so that we don't break a servo or the mouth 
-  outputVal = constrain(outputVal, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
+  if (audioVal > 20) {
+    // range of useful audioVal seems to go from between 20 and 300
+    outputVal = map(audioVal, 20, 300, MOUTHUD_MIN_ANGLE + 5, MOUTHUD_MAX_ANGLE);
+    // make sure the mouth angle can't go beyond the MIN and MAX angles so that we don't break a servo or the mouth
+    outputVal = constrain(outputVal, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
+  } else
+    outputVal = MOUTHUD_MIN_ANGLE;
+
   Serial.print("abs(audioVal): ");
   Serial.println(audioVal); 
   Serial.print("outputVal: ");

@@ -228,9 +228,7 @@ void setup()
   heartbeatTh.setInterval((heartbeatDelay*10)+10);
 
   buttonTh.onRun(buttonHandler);
-  buttonTh.setInterval(500);
-
-
+  buttonTh.setInterval(300);
 
   blinkTh.onRun(blinkMeEyes);
   blinkTh.setInterval(3000);

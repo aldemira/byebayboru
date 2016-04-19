@@ -117,8 +117,10 @@ const int forwardThreshold = 340;
 const int backwardThreshold = 330;
 const int leftThreshold = 360;
 const int rightThreshold = 350;
-/**** END Accelerometer Thresholds ****
-****** End Configurable Stuff *********/
+/**** END Accelerometer Thresholds ****/
+
+const int SILENT_AUDIO_VAL = 500;
+/****** End Configurable Stuff *********/
 // Servo definitions
 Servo rEyeLR;
 Servo lEyeLR;
@@ -289,8 +291,16 @@ void talkCallback()
     
   int audioVal, outputVal;
   audioVal = analogRead(AUDIO_INPUT_PIN);
-  outputVal = abs(map(audioVal, 520, 1023, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE));  
+  audioVal = abs(audioVal - SILENT_AUDIO_VAL);
+  // range of abs(audioVal) seems to go from between 5 and 350 or so
+  outputVal = map(audioVal,5,350, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
+  // make sure the mouth angle can't go beyond the MIN and MAX angles so that we don't break a servo or the mouth 
+  outputVal = constrain(outputVal, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
+  Serial.print("abs(audioVal): ");
+  Serial.println(audioVal); 
+  Serial.print("outputVal: ");
   Serial.println(outputVal); 
+  Serial.println("-----"); 
   mouthUD.write(outputVal); 
 }
 

@@ -214,6 +214,8 @@ const float alpha = 1.5;
 
 // Make this false to stop random eyemovements
 bool enableeyemovements = true;
+// Enable/Disable head movements
+bool enabledacccode = false;
 
 void setup()
 {
@@ -235,12 +237,15 @@ void setup()
   blinkTh.onRun(blinkMeEyes);
   blinkTh.setInterval(3000);
 
-  moveHeadTh.onRun(moveHeadCallback);
-  moveHeadTh.setInterval(200);
-
   talkTh.onRun(talkCallback);
   talkTh.setInterval(200);
-  
+    
+  if(enabledacccode == true) {
+    moveHeadTh.onRun(moveHeadCallback);
+    moveHeadTh.setInterval(200);
+    control1.add(&moveHeadTh);
+  }
+
   if(enableeyemovements == true) {
     commonMovesTh.onRun(commonMovesCallback);
     commonMovesTh.setInterval(500);
@@ -252,7 +257,7 @@ void setup()
   control1.add(&buttonTh);  
   control1.add(&blinkTh);
   control1.add(&talkTh);
-  control1.add(&moveHeadTh);
+  
     
   //Servo setups
   rEyeUD.attach(R_EYE_UD, min_pulse, max_pulse);

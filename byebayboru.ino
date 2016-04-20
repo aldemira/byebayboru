@@ -203,6 +203,7 @@ bool thinking = false;
 bool notsure = false;
 bool raiseeyebrows = false;
 bool stopheart = false;
+bool iamcool = false;
 /**** End Face expression state variables ****/
 // Accelerometer Parameters
 //float xZero = 319;
@@ -350,8 +351,9 @@ void buttonHandler()
       xAcc = 0;
       zAcc = 0;
     }
-    
-
+    // Don't try to reset servos if we're trying to be cool
+    if(iamcool == true)
+      return;
       
     if(whistle == true)
       bbWhistle(false);
@@ -890,6 +892,7 @@ void bbSearch()
 // Called when L1+R2 are pressed
 void bbimCool()
 {
+    iamcool = true;
     stopeyes = true;
     stopblinking = true;
     bbSmile(true);
@@ -905,6 +908,7 @@ void bbimCool()
     bbSmile(false);
     stopeyes = false;
     stopblinking = false;
+    iamcool = false;
     Serial.println("BB I'm cool!");
 }
 

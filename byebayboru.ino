@@ -587,6 +587,7 @@ void bbAnger(bool fstatus)
 {
   if(fstatus == true && anger == false) {
     anger = true;
+    heartbeatStep = heartbeatStep / 2;
     mouthL.write(MOUTHL_FROWN_ANGLE);
     mouthR.write(MOUTHR_FROWN_ANGLE);
     eyeBrowL.write(60);
@@ -595,6 +596,7 @@ void bbAnger(bool fstatus)
     Serial.println("BB angry");
   } else if(fstatus == false && anger == true) {
     anger = false;
+    heartbeatStep = heartbeatStep * 2;
     eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
     eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
     eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
@@ -745,7 +747,7 @@ void bbFear(bool fstatus)
   if(fstatus == true && fear == false) {
     fear = true;
     stoptalking = true;
-    heartbeatDelay = heartbeatDelay/2;
+    heartbeatStep = heartbeatStep / 2;
     // Set open angles to new values 
     // so we can continue blinking
     LEYE_LID_OPEN_ANGLE = 50;
@@ -757,7 +759,7 @@ void bbFear(bool fstatus)
     eyeBrowR.write(65);
     Serial.println("BB in fear");
   } else if(fstatus == false && fear == true) {
-    heartbeatDelay = heartbeatDelaytmp;
+    heartbeatStep = heartbeatStep * 2;
     fear = false;
     stoptalking = false;
     LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
@@ -826,40 +828,41 @@ void bbWhistle(bool fstatus)
 void bbDie()
 {
   ultimateaction = true;
-  heartbeatDelay = heartbeatDelay*2;
+  heartbeatStep = heartbeatStep * 2;
   // Close mouth
-  mouthUD.write(5);
+  mouthUD.write(MOUTHUD_MIN_ANGLE);
   // Flicker eyes
   for(int i=0; i<5; i++) {
-    lEyeLR.write(60);
-    rEyeLR.write(60);
-    delay(100);
-    //eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
-    //eyeLidR.write(REYE_LID_CLOSE_ANGLE);
-    lEyeLR.write(90);
-    rEyeLR.write(90);
-    delay(100);
-    //eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    //eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    lEyeLR.write(120);
-    rEyeLR.write(120);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-30);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE+30);
+    delay(400);
+    eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
+    eyeLidR.write(REYE_LID_CLOSE_ANGLE);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE);
+    delay(400);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+30);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE-30);
   }
-
+  heartbeatStep = heartbeatStep * 2;
   // Eyes back to normal position
-  lEyeLR.write(90);
-  rEyeLR.write(90);
+  lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
+  rEyeLR.write(REYE_LR_INITIAL_ANGLE);
+  delay(200);
   // Slowly close eyes
   for(int i=LEYE_LID_OPEN_ANGLE,j=REYE_LID_OPEN_ANGLE;i<=REYE_LID_CLOSE_ANGLE && j<=REYE_LID_CLOSE_ANGLE;i++,j++) {
     eyeLidR.write(j);
     eyeLidL.write(i);
     delay(400);
-  }  
-  
+  }
+  heartbeatStep = heartbeatStep * 2;
   // Eye brows go up and slowly down
   eyeBrowU.write(75);
   for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i--) {
     eyeBrowU.write(i);
-    delay(100);
+    delay(300);
   }
   stopheart = true;
 }

@@ -350,6 +350,9 @@ void buttonHandler()
       xAcc = 0;
       zAcc = 0;
     }
+    
+
+      
     if(whistle == true)
       bbWhistle(false);
     
@@ -379,6 +382,9 @@ void buttonHandler()
       
     if(mouthopen == true)
       bbMouthOpen(false);
+      
+    if(smile == true)
+      bbSmile(false);
     if(crazy == true || search == true) {
       crazy = false;
       search = false;
@@ -558,7 +564,7 @@ void moveEyesSlightly()
 /********** Facial Expressions ***********/
 void bbNeutral()
 {
-  mouthUD.write(5);
+  mouthUD.write(MOUTHUD_MIN_ANGLE);
   lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
   rEyeLR.write(REYE_LR_INITIAL_ANGLE);
   lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
@@ -609,10 +615,10 @@ void bbThink(bool fstatus)
     REYE_LID_OPEN_ANGLE = 50;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
-    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
-    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-20);
-    rEyeLR.write(REYE_LR_INITIAL_ANGLE+20);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE+20);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE+20);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+20);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
     thinking = false;
@@ -664,13 +670,15 @@ void bbNotSure(bool fstatus)
     //eyeBrowU.write(45);
     eyeBrowL.write(60);
     eyeBrowR.write(115);
-    for(int i=90;i>59;i=i-10) {
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
+    for(int i=LEYE_LR_INITIAL_ANGLE, j=REYE_LR_INITIAL_ANGLE;i>59 && j<121;i=i-10, j=j+10) {
       lEyeLR.write(i);
-      rEyeLR.write(i);
+      rEyeLR.write(j);
       delay(50);
     }
     delay(100);
-    for(int i=60;i<121;i=i+10) {
+    for(int i=60, j= 120;i<=LEYE_LR_INITIAL_ANGLE && j>=REYE_LR_INITIAL_ANGLE ;i=i+10, j=j-10) {
       rEyeLR.write(i);
       lEyeLR.write(i);
       delay(100);
@@ -680,6 +688,8 @@ void bbNotSure(bool fstatus)
     notsure = false;
     eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
     eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE);
     //eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
@@ -691,7 +701,7 @@ void bbNotSure(bool fstatus)
 void bbRaiseEyeB()
 {
   Serial.println("BB raise eyes");
-  eyeBrowU.write(75); 
+  eyeBrowU.write(80); 
   eyeBrowL.write(80);
   eyeBrowR.write(80);
   delay(50);
@@ -823,22 +833,26 @@ void bbDie()
   for(int i=0; i<5; i++) {
     lEyeLR.write(60);
     rEyeLR.write(60);
-    eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
-    eyeLidR.write(REYE_LID_CLOSE_ANGLE);
+    delay(100);
+    //eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
+    //eyeLidR.write(REYE_LID_CLOSE_ANGLE);
     lEyeLR.write(90);
     rEyeLR.write(90);
-    delay(50);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
+    delay(100);
+    //eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    //eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     lEyeLR.write(120);
     rEyeLR.write(120);
   }
 
+  // Eyes back to normal position
+  lEyeLR.write(90);
+  rEyeLR.write(90);
   // Slowly close eyes
-  for(int i=LEYE_LID_OPEN_ANGLE,j=REYE_LID_OPEN_ANGLE;i<=REYE_LID_OPEN_ANGLE && j<=REYE_LID_OPEN_ANGLE;i--,j--) {
+  for(int i=LEYE_LID_OPEN_ANGLE,j=REYE_LID_OPEN_ANGLE;i<=REYE_LID_CLOSE_ANGLE && j<=REYE_LID_CLOSE_ANGLE;i++,j++) {
     eyeLidR.write(j);
     eyeLidL.write(i);
-    delay(50);
+    delay(400);
   }  
   
   // Eye brows go up and slowly down
@@ -874,6 +888,7 @@ void bbSearch()
 void bbimCool()
 {
     stopeyes = true;
+    stopblinking = true;
     bbSmile(true);
     for(int i=0;i<3;i++) {
       eyeBrowU.write(75);
@@ -881,11 +896,12 @@ void bbimCool()
       eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
     }
     eyeLidR.write(REYE_LID_CLOSE_ANGLE);
-    delay(150);
+    delay(300);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
     delay(50);
     bbSmile(false);
     stopeyes = false;
+    stopblinking = false;
     Serial.println("BB I'm cool!");
 }
 

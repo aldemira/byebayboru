@@ -100,7 +100,7 @@ byte MOUTHUD_MIN_ANGLE = 95;
 byte MOUTHUD_MAX_ANGLE = 125;
 byte MOUTHL_NEUTRAL_ANGLE = 95;
 byte MOUTHR_NEUTRAL_ANGLE = 92;
-byte MOUTHL_SMILE_ANGLE = 45;
+byte MOUTHL_SMILE_ANGLE = 60;
 byte MOUTHR_SMILE_ANGLE = 120;
 byte MOUTHL_FROWN_ANGLE = 125;
 byte MOUTHR_FROWN_ANGLE = 45;
@@ -292,7 +292,7 @@ void loop()
 /**************** CALLBACK FUNCTIONS *************/
 void talkCallback()
 {
-  if(stoptalking == true)
+  if(stoptalking == true || ultimateaction == true)
     return;
     
   int audioVal, outputVal;
@@ -492,7 +492,7 @@ void commonMovesCallback()
 
 void moveHeadCallback()
 {
-  if(ignoreacc == true)
+  if(ignoreacc == true || ultimateaction == true)
     return;
   
   int xAxis = analogRead(ACC_X_INPUT_PIN);
@@ -615,17 +615,21 @@ void bbThink(bool fstatus)
 {
   if(fstatus == true && thinking == false) {
     thinking = true;
+    stopblinking = true;
+    stopeyes = true;
     LEYE_LID_OPEN_ANGLE = 70;
     REYE_LID_OPEN_ANGLE = 50;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE+20);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE+20);
-    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+20);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-20);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
     thinking = false;
+    stopblinking = false;
+    stopeyes = false;
     LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
     REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
@@ -676,14 +680,14 @@ void bbNotSure(bool fstatus)
     eyeBrowR.write(115);
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
-    for(int i=LEYE_LR_INITIAL_ANGLE, j=REYE_LR_INITIAL_ANGLE;i>59 && j<121;i=i-10, j=j+10) {
+    for(int i=LEYE_LR_INITIAL_ANGLE, j=REYE_LR_INITIAL_ANGLE;i>59 && j<59;i=i-10, j=j-10) {
       lEyeLR.write(i);
       rEyeLR.write(j);
       delay(50);
     }
     delay(100);
-    for(int i=60, j= 120;i<=LEYE_LR_INITIAL_ANGLE && j>=REYE_LR_INITIAL_ANGLE ;i=i+10, j=j-10) {
-      rEyeLR.write(i);
+    for(int i=60, j=60;i<=LEYE_LR_INITIAL_ANGLE && j>=REYE_LR_INITIAL_ANGLE ;i=i+10, j=j+10) {
+      rEyeLR.write(j);
       lEyeLR.write(i);
       delay(100);
     }
@@ -705,7 +709,7 @@ void bbNotSure(bool fstatus)
 void bbRaiseEyeB()
 {
   Serial.println("BB raise eyes");
-  eyeBrowU.write(80); 
+  eyeBrowU.write(70); 
   eyeBrowL.write(80);
   eyeBrowR.write(80);
   delay(50);
@@ -830,9 +834,10 @@ void bbWhistle(bool fstatus)
 void bbDie()
 {
   ultimateaction = true;
-  heartbeatStep = heartbeatStep * 2;
   // Close mouth
   mouthUD.write(MOUTHUD_MIN_ANGLE);
+  // Slower heart
+  heartbeatStep = heartbeatStep * 2;
   // Flicker eyes
   for(int i=0; i<5; i++) {
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE-30);
@@ -848,6 +853,7 @@ void bbDie()
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE+30);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE-30);
   }
+  // Even slower
   heartbeatStep = heartbeatStep * 2;
   // Eyes back to normal position
   lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
@@ -862,7 +868,7 @@ void bbDie()
   heartbeatStep = heartbeatStep * 2;
   // Eye brows go up and slowly down
   eyeBrowU.write(75);
-  for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i--) {
+  for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i++) {
     eyeBrowU.write(i);
     delay(300);
   }

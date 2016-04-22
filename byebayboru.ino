@@ -204,6 +204,7 @@ bool notsure = false;
 bool raiseeyebrows = false;
 bool stopheart = false;
 bool iamcool = false;
+bool freeze = false;
 /**** End Face expression state variables ****/
 // Accelerometer Parameters
 //float xZero = 319;
@@ -351,9 +352,13 @@ void buttonHandler()
       xAcc = 0;
       zAcc = 0;
     }
+    
     // Don't try to reset servos if we're trying to be cool
     if(iamcool == true)
       return;
+
+    if(freeze == true)
+      bbFreeze(false);
       
     if(whistle == true)
       bbWhistle(false);
@@ -427,7 +432,8 @@ void buttonHandler()
     if(smile == false)
       bbSmile(true);
   } else if(button1val == 3 && button2val == 2) {
-      bbRaiseEyeB();
+    if(freeze == false)
+      bbFreeze(true);
   } else if(button1val == 1 && button2val == 0) {
     //L1 single press
     if(anger == false)
@@ -994,7 +1000,18 @@ void bbLie(bool fstatus)
   }
 }
 
-
+// Stop any looping expressions
+// simply achieved by setting ultimateaction to true
+void bbFreeze(bool fstatus)
+{
+  if(fstatus == true && freeze == false) {
+    ultimateaction = true;
+    freeze = true;
+  } else if(fstatus == false && freeze == true) {
+    ultimateaction = false;
+    freeze = false;
+  }
+}
 
 // eyes slightly closed
 // Not called currently

@@ -122,7 +122,7 @@ const int rightThreshold = 350;
 const int SILENT_AUDIO_VAL = 500;
 /****** End Configurable Stuff *********/
 
-void(* resetFunc) (void) = 0;//declare reset function at address 0
+void(* resetFunc) (void) = 0; //declare reset function at address 0
 // Servo definitions
 Servo rEyeLR;
 Servo lEyeLR;
@@ -849,7 +849,8 @@ void bbDie()
   // Slower heart
   heartbeatStep = heartbeatStep * 2;
   // Flicker eyes
-  for(int i=0; i<5; i++) {
+  Serial.println("flicker eyes");
+  for(int i=0; i < 3; i++) {
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE-30);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE+30);
     delay(400);
@@ -858,33 +859,46 @@ void bbDie()
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE);
     delay(400);
+    
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE+30);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE-30);
   }
   // Even slower
+  Serial.println("slow heart");
   heartbeatStep = heartbeatStep * 2;
   // Eyes back to normal position
+  // Serial.println("LR eyes back");
   lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
   rEyeLR.write(REYE_LR_INITIAL_ANGLE);
   delay(200);
-  // Slowly close eyes
-  for(int i=LEYE_LID_OPEN_ANGLE,j=REYE_LID_OPEN_ANGLE;i<=REYE_LID_CLOSE_ANGLE && j<=REYE_LID_CLOSE_ANGLE;i++,j++) {
-    eyeLidR.write(j);
-    eyeLidL.write(i);
-    delay(400);
-  }
-  heartbeatStep = heartbeatStep * 2;
+
   // Eye brows go up and slowly down
+  //Serial.println("raise and rhen lower eye brows");
   eyeBrowU.write(75);
-  for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i++) {
+  for (int i = 75;i <= EYEBROW_UD_INITIAL_ANGLE; i = i + 4) {
+    Serial.println(i);
     eyeBrowU.write(i);
-    delay(150);
+    delay(250);
   }
+  
+  heartbeatStep = heartbeatStep * 2;
+  
+  // Slowly close eyes
+  // Serial.println("Slowly close eyes");
+  int steps_to_close = 10;
+  int LEYE_CLOSE_INCREMENT = abs(LEYE_LID_OPEN_ANGLE - LEYE_LID_CLOSE_ANGLE) / steps_to_close;
+  int REYE_CLOSE_INCREMENT = abs(REYE_LID_OPEN_ANGLE - REYE_LID_CLOSE_ANGLE) / steps_to_close;
+
+  for (int i = 0; i <= steps_to_close; i++) {
+    eyeLidR.write(REYE_LID_OPEN_ANGLE - (i * REYE_CLOSE_INCREMENT));
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE + (i * LEYE_CLOSE_INCREMENT));
+    delay(300);
+  }
+
   stopheart = true;
 }
-
 // eyes look left and right together
 // Called when L1+R1 are pressed
 void bbSearch()

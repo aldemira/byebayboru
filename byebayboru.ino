@@ -95,14 +95,14 @@ static byte EYEBROW_UD_INITIAL_ANGLE = 100;
 byte LEYE_LID_OPEN_ANGLE = 65;
 byte LEYE_LID_CLOSE_ANGLE = 85;
 byte REYE_LID_OPEN_ANGLE = 40;
-byte REYE_LID_CLOSE_ANGLE = 60;
+byte REYE_LID_CLOSE_ANGLE = 20;
 byte MOUTHUD_MIN_ANGLE = 95;
 byte MOUTHUD_MAX_ANGLE = 125;
-byte MOUTHL_NEUTRAL_ANGLE = 95;
-byte MOUTHR_NEUTRAL_ANGLE = 92;
-byte MOUTHL_SMILE_ANGLE = 60;
-byte MOUTHR_SMILE_ANGLE = 120;
-byte MOUTHL_FROWN_ANGLE = 125;
+byte MOUTHL_NEUTRAL_ANGLE = 80;
+byte MOUTHR_NEUTRAL_ANGLE = 107;
+byte MOUTHL_SMILE_ANGLE = 55;
+byte MOUTHR_SMILE_ANGLE = 125;
+byte MOUTHL_FROWN_ANGLE = 135;
 byte MOUTHR_FROWN_ANGLE = 45;
 byte INITIAL_EYE_LR_ANGLE = 90;
 byte EARS_INITIAL_ANGLE = 90;
@@ -301,7 +301,7 @@ void talkCallback()
   audioVal = abs(audioVal - SILENT_AUDIO_VAL);
   if (audioVal > 20) {
     // range of useful audioVal seems to go from between 20 and 300
-    outputVal = map(audioVal, 20, 300, MOUTHUD_MIN_ANGLE + 5, MOUTHUD_MAX_ANGLE);
+    outputVal = map(audioVal, 20, 300, MOUTHUD_MIN_ANGLE + 10, MOUTHUD_MAX_ANGLE);
     // make sure the mouth angle can't go beyond the MIN and MAX angles so that we don't break a servo or the mouth
     outputVal = constrain(outputVal, MOUTHUD_MIN_ANGLE, MOUTHUD_MAX_ANGLE);
   } else
@@ -357,8 +357,10 @@ void buttonHandler()
     if(iamcool == true)
       return;
 
-    if(freeze == true)
-      bbFreeze(false);
+    if(freeze == true) {
+      freeze = false;
+      ultimateaction = false;
+    }
       
     if(whistle == true)
       bbWhistle(false);
@@ -432,8 +434,10 @@ void buttonHandler()
     if(smile == false)
       bbSmile(true);
   } else if(button1val == 3 && button2val == 2) {
-    if(freeze == false)
-      bbFreeze(true);
+    if(freeze == false) {
+      freeze = true;
+      ultimateaction = true;
+    }
   } else if(button1val == 1 && button2val == 0) {
     //L1 single press
     if(anger == false)
@@ -599,7 +603,7 @@ void bbAnger(bool fstatus)
     mouthL.write(MOUTHL_FROWN_ANGLE);
     mouthR.write(MOUTHR_FROWN_ANGLE);
     eyeBrowL.write(60);
-    eyeBrowR.write(115);
+    eyeBrowR.write(135);
     eyeBrowU.write(75);
     Serial.println("BB angry");
   } else if(fstatus == false && anger == true) {
@@ -624,12 +628,12 @@ void bbThink(bool fstatus)
     stopblinking = true;
     stopeyes = true;
     LEYE_LID_OPEN_ANGLE = 70;
-    REYE_LID_OPEN_ANGLE = 50;
+    REYE_LID_OPEN_ANGLE = 35;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    lEyeUD.write(LEYE_UD_INITIAL_ANGLE+20);
-    rEyeUD.write(REYE_UD_INITIAL_ANGLE+20);
-    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-20);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+20);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
@@ -683,7 +687,7 @@ void bbNotSure(bool fstatus)
     notsure = true;
     //eyeBrowU.write(45);
     eyeBrowL.write(60);
-    eyeBrowR.write(115);
+    eyeBrowR.write(120);
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
     for(int i=LEYE_LR_INITIAL_ANGLE, j=REYE_LR_INITIAL_ANGLE;i>59 && j<59;i=i-10, j=j-10) {
@@ -763,7 +767,7 @@ void bbFear(bool fstatus)
     // Set open angles to new values 
     // so we can continue blinking
     LEYE_LID_OPEN_ANGLE = 50;
-    REYE_LID_OPEN_ANGLE = 30;
+    REYE_LID_OPEN_ANGLE = 50;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
     mouthUD.write(120);
@@ -876,7 +880,7 @@ void bbDie()
   eyeBrowU.write(75);
   for(int i=75;i>=EYEBROW_UD_INITIAL_ANGLE; i++) {
     eyeBrowU.write(i);
-    delay(300);
+    delay(150);
   }
   stopheart = true;
 }
@@ -891,7 +895,7 @@ void bbSearch()
     rEyeLR.write(120);
     delay(300);
     lEyeLR.write(120);
-    rEyeLR.write(600);
+    rEyeLR.write(60);
     delay(300);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
     rEyeLR.write(REYE_LR_INITIAL_ANGLE);
@@ -997,19 +1001,6 @@ void bbLie(bool fstatus)
     lie = false;
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE);
-  }
-}
-
-// Stop any looping expressions
-// simply achieved by setting ultimateaction to true
-void bbFreeze(bool fstatus)
-{
-  if(fstatus == true && freeze == false) {
-    ultimateaction = true;
-    freeze = true;
-  } else if(fstatus == false && freeze == true) {
-    ultimateaction = false;
-    freeze = false;
   }
 }
 

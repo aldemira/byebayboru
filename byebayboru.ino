@@ -86,8 +86,8 @@
 ***** End INPUT PIN definitions ***********
 *******************************************
 ***** INITIAL Servo Angle Definitions ****/
-static byte LEYE_LID_INITIAL_ANGLE = 65;
-static byte REYE_LID_INITIAL_ANGLE = 40;
+static byte LEYE_LID_INITIAL_ANGLE = 70;
+static byte REYE_LID_INITIAL_ANGLE = 35;
 static byte EYEBROW_L_INITIAL_ANGLE = 90;
 static byte EYEBROW_R_INITIAL_ANGLE = 95;
 static byte LEYE_LR_INITIAL_ANGLE = 90;
@@ -98,7 +98,7 @@ static byte EYEBROW_UD_INITIAL_ANGLE = 100;
 
 byte LEYE_LID_OPEN_ANGLE = 65;
 byte LEYE_LID_CLOSE_ANGLE = 85;
-byte REYE_LID_OPEN_ANGLE = 40;
+byte REYE_LID_OPEN_ANGLE = 35;
 byte REYE_LID_CLOSE_ANGLE = 20;
 byte MOUTHUD_MIN_ANGLE = 95;
 byte MOUTHUD_MAX_ANGLE = 125;
@@ -240,7 +240,7 @@ bool freeze = false;
 // Make this false to stop random eyemovements
 bool enableeyemovements = true;
 // Enable/Disable head movements
-bool enabledacccode = false;
+bool enabledacccode = true;
 
 void setup()
 {
@@ -287,7 +287,7 @@ void setup()
         // enable Arduino interrupt detection
         Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
         //attachInterrupt(0, dmpDataReady, RISING);
-        mpuIntStatus = mpu.getIntStatus();
+        //mpuIntStatus = mpu.getIntStatus();
 
         // set our DMP Ready flag so the main loop() function knows it's okay to use it
         Serial.println(F("DMP ready! Waiting for first interrupt..."));
@@ -434,8 +434,9 @@ void buttonHandler()
       ignoreacc = false;
     }
     // Don't try to reset servos if we're trying to be cool
-    if(iamcool == true)
-      return;
+    if(iamcool == true) {
+      bbNeutral();
+    }
 
     if(freeze == true) {
       // bbFreeze(false);
@@ -467,8 +468,9 @@ void buttonHandler()
     if(thinking == true)
       bbThink(false);
 
-    if(notsure == true)
-      bbNotSure(false);
+    if(notsure == true) {
+      bbNeutral();
+    }
 
     if(mouthopen == true)
       bbMouthOpen(false);
@@ -540,8 +542,7 @@ void buttonHandler()
       bbThink(true);
   } else if(button2val == 2 && button1val == 0) {
     //R2 single press
-    if(notsure == false)
-      bbNotSure(true);
+    bbNotSure(true);
   } else if(button2val == 3 && button1val == 0) {
     //R3 single press
     if(whistle == false)
@@ -587,7 +588,6 @@ void moveHeadCallback()
 {
   if(ignoreacc == true || ultimateaction == true)
     return;
-<<<<<<< HEAD
   
   // if programming failed, don't try to do anything
     if (!dmpReady) return;
@@ -598,19 +598,19 @@ void moveHeadCallback()
 
     // reset interrupt flag and get INT_STATUS byte
     //mpuInterrupt = false;
-    mpuIntStatus = mpu.getIntStatus();
+    //mpuIntStatus = mpu.getIntStatus();
 
     // get current FIFO count
     fifoCount = mpu.getFIFOCount();
 
     // check for overflow (this should never happen unless our code is too inefficient)
-    if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+    //if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
         // reset so we can continue cleanly
         mpu.resetFIFO();
         Serial.println(F("FIFO overflow!"));
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
-    } else if (mpuIntStatus & 0x02) {
+    //} else if (mpuIntStatus & 0x02) {
         // wait for correct available data length, should be a VERY short wait
         while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
@@ -641,21 +641,8 @@ void moveHeadCallback()
               headLR.write(roll+30);   // Rotation around X
         #endif
 
-    }
-=======
+    //}
 
-  int xAxis = analogRead(ACC_X_INPUT_PIN);
-  //int yAxis = analogRead(ACC_Y_INPUT_PIN);
-  int zAxis = analogRead(ACC_Z_INPUT_PIN);
-  //Low Pass Filter
-  xAcc = xAxis * alpha + (xAcc * (1.0 - alpha));
-  //yAcc = yAxis * alpha + (yAcc * (1.0 - alpha));
-  zAcc = zAxis * alpha + (zAcc * (1.0 - alpha));
-  double roll = (atan2(zAcc, xAcc)*180.0/PI);
-  //Serial.println(roll);
-  if(roll <= HEADLR_MAX_ANGLE && roll >= HEADLR_MIN_ANGLE)
-    headLR.write(roll+30);
->>>>>>> 14f986d12ac08d5e4a869ad6becb0695ae66f0f0
 }
 
 /*********** END CALLBACK FUNCTIONS *******************/
@@ -721,8 +708,8 @@ void bbNeutral()
   rEyeLR.write(REYE_LR_INITIAL_ANGLE);
   lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
   rEyeUD.write(REYE_UD_INITIAL_ANGLE);
-  eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-  eyeLidR.write(REYE_LID_OPEN_ANGLE);
+  eyeLidL.write(LEYE_LID_INITIAL_ANGLE);
+  eyeLidR.write(REYE_LID_INITIAL_ANGLE);
   eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
   eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
   eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
@@ -730,6 +717,7 @@ void bbNeutral()
   mouthR.write(MOUTHR_NEUTRAL_ANGLE);
   stoptalking = false;
   stopblinking = false;
+  stopeyes = false;
 }
 
 //Eyebrows raised, point down,
@@ -770,10 +758,11 @@ void bbThink(bool fstatus)
     REYE_LID_OPEN_ANGLE = 35;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
-    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
-    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+20);
-    rEyeLR.write(REYE_LR_INITIAL_ANGLE-20);
+    eyeBrowL.write(60);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE+40);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE-40);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+30);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE-40);
     Serial.println("BB thinking");
   } else if(fstatus == false && thinking == true) {
     thinking = false;
@@ -783,6 +772,7 @@ void bbThink(bool fstatus)
     REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE);
     lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
@@ -821,41 +811,30 @@ void bbBigSmile(bool fstatus)
 void bbNotSure(bool fstatus)
 {
   int tempvar;
-  if(fstatus == true && notsure == false) {
-    notsure = true;
-    //eyeBrowU.write(45);
-    eyeBrowL.write(60);
-    eyeBrowR.write(120);
+  notsure = true;
+  stopblinking = true;
+  stopeyes = true;
+  eyeBrowL.write(60);
+  eyeBrowR.write(120);
+    mouthL.write(MOUTHL_NEUTRAL_ANGLE+10);
+    mouthR.write(MOUTHR_NEUTRAL_ANGLE-10);
     // CdeB thinks that one of these should be +20 - but doesn't know which one without testing
-    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-20);
-    rEyeUD.write(REYE_UD_INITIAL_ANGLE-20);
+    lEyeUD.write(LEYE_UD_INITIAL_ANGLE-40);
+    rEyeUD.write(REYE_UD_INITIAL_ANGLE+40);
     
-    // CdeB says this code doesn't work since Arduino doesn't support multiple variables in for loops
-    for(int i=LEYE_LR_INITIAL_ANGLE, j=REYE_LR_INITIAL_ANGLE;i>59 && j<59;i=i-10, j=j-10) {
-      Serial.println(i);
-      Serial.println(j);
-      lEyeLR.write(i);
-      rEyeLR.write(j);
-      delay(50);
-    }
-    delay(100);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE-25);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE+25);
+    delay(500);
+    lEyeLR.write(LEYE_LR_INITIAL_ANGLE+25);
+    rEyeLR.write(REYE_LR_INITIAL_ANGLE-25);
+    delay(500);
+    /*
     for(int i=60, j=60;i<=LEYE_LR_INITIAL_ANGLE && j>=REYE_LR_INITIAL_ANGLE ;i=i+10, j=j+10) {
       rEyeLR.write(j);
       lEyeLR.write(i);
       delay(100);
-    }
+    }*/
     Serial.println("BB not sure");
-  } else if(fstatus == false && notsure == true) {
-    notsure = false;
-    eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
-    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
-    lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
-    rEyeUD.write(REYE_UD_INITIAL_ANGLE);
-    lEyeLR.write(LEYE_LR_INITIAL_ANGLE);
-    rEyeLR.write(REYE_LR_INITIAL_ANGLE);
-    //eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
-    Serial.println("BB sure");
-  }
 }
 
 //Eyebrows keep going up and down, at the top, they twitch
@@ -904,15 +883,13 @@ void bbMouthOpen(bool fstatus)
 void bbFear(bool fstatus)
 {
   if(fstatus == true && fear == false) {
+    bbNeutral();
     fear = true;
     stoptalking = true;
+    stopblinking = true;
     heartbeatStep = heartbeatStep / 2;
-    // Set open angles to new values
-    // so we can continue blinking
-    LEYE_LID_OPEN_ANGLE = 50;
-    REYE_LID_OPEN_ANGLE = 50;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE-12);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE+5);
     mouthUD.write(120);
     eyeBrowL.write(125);
     eyeBrowR.write(65);
@@ -921,6 +898,7 @@ void bbFear(bool fstatus)
     heartbeatStep = heartbeatStep * 2;
     fear = false;
     stoptalking = false;
+    stopblinking = false;
     LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
     REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
     eyeLidL.write(LEYE_LID_OPEN_ANGLE);
@@ -958,23 +936,22 @@ void bbWhistle(bool fstatus)
   if(fstatus == true && whistle == false) {
     whistle = true;
     stoptalking = true;
-    // Set open angles to new values
-    // so we can continue blinking
-    LEYE_LID_OPEN_ANGLE = 70;
-    REYE_LID_OPEN_ANGLE = 50;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    mouthUD.write(100);
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE+10);
+    eyeLidR.write(REYE_LID_OPEN_ANGLE-10);
+    mouthUD.write(110);
+    //mouthL.write(MOUTHL_FROWN_ANGLE+2);
+    //mouthR.write(MOUTHR_FROWN_ANGLE-2);
+    
     Serial.println("BB whistles");
   } else if(fstatus == false && whistle == true) {
     whistle = false;
     stoptalking = false;
-    LEYE_LID_OPEN_ANGLE = LEYE_LID_INITIAL_ANGLE;
-    REYE_LID_OPEN_ANGLE = REYE_LID_INITIAL_ANGLE;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE);
-    eyeLidR.write(REYE_LID_OPEN_ANGLE);
+    eyeLidL.write(LEYE_LID_INITIAL_ANGLE);
+    eyeLidR.write(REYE_LID_INITIAL_ANGLE);
     eyeBrowL.write(EYEBROW_L_INITIAL_ANGLE);
     eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    //mouthL.write(MOUTHL_NEUTRAL_ANGLE);
+    //mouthR.write(MOUTHR_NEUTRAL_ANGLE);
     Serial.println("BB doesn't whistle");
   }
 
@@ -986,6 +963,7 @@ void bbWhistle(bool fstatus)
 // Called when L3+R3 are pressed
 void bbDie()
 {
+  bbNeutral();
   ultimateaction = true;
   // Close mouth
   mouthUD.write(MOUTHUD_MIN_ANGLE);
@@ -1037,8 +1015,10 @@ void bbDie()
   for (int i = 0; i <= steps_to_close; i++) {
     eyeLidR.write(REYE_LID_OPEN_ANGLE - (i * REYE_CLOSE_INCREMENT));
     eyeLidL.write(LEYE_LID_OPEN_ANGLE + (i * LEYE_CLOSE_INCREMENT));
-    delay(300);
+    delay(400);
   }
+  eyeLidR.write(REYE_LID_CLOSE_ANGLE);
+  eyeLidL.write(LEYE_LID_CLOSE_ANGLE);
   
   stopheart = true;
 }
@@ -1076,13 +1056,12 @@ void bbimCool()
       eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
     }
     eyeLidR.write(REYE_LID_CLOSE_ANGLE);
+    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE+25);
     delay(300);
     eyeLidR.write(REYE_LID_OPEN_ANGLE);
-    delay(50);
+    eyeBrowR.write(EYEBROW_R_INITIAL_ANGLE);
+    delay(200);
     bbSmile(false);
-    stopeyes = false;
-    stopblinking = false;
-    iamcool = false;
     Serial.println("BB I'm cool!");
 }
 
@@ -1091,6 +1070,7 @@ void bbimCool()
 // Called when L2+R3 are pressed
 void bbCrazyEyes()
 {
+  bbNeutral();
   crazy = true;
   stopblinking = true;
   stoptalking = true;
@@ -1101,16 +1081,16 @@ void bbCrazyEyes()
   // Eyes, eyelids and eyebrows move wildly and independently
   leyerlangle = random(40,140);
   //reyerlangle = random(40,150);
-  lEyeLR.write(leyerlangle);
-  rEyeLR.write(leyerlangle*-1);
+  rEyeLR.write(leyerlangle);
+  lEyeLR.write(leyerlangle*-1);
   leyeudangle = random(40,140);
-  //reyeudangle = random(40,150);
+  reyeudangle = random(REYE_UD_INITIAL_ANGLE-40, REYE_UD_INITIAL_ANGLE+40);
   lEyeUD.write(leyeudangle);
-  rEyeUD.write(leyeudangle*-1);
+  rEyeUD.write(reyeudangle);
   //leyelangle = random(LEYE_LID_OPEN_ANGLE-20, LEYE_LID_CLOSE_ANGLE);
   //reyelangle = random(REYE_LID_OPEN_ANGLE-20, REYE_LID_CLOSE_ANGLE);
-  eyeLidL.write(LEYE_LID_OPEN_ANGLE-10);
-  eyeLidR.write(REYE_LID_OPEN_ANGLE-5);
+  //eyeLidR.write(REYE_LID_OPEN_ANGLE-2);
+ // eyeLidL.write(LEYE_LID_OPEN_ANGLE-2);
   leyebangle = random(60, 120);
   reyebangle = random(60, 120);
   eyeBrowL.write(leyebangle);

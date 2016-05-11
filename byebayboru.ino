@@ -208,7 +208,9 @@ byte heartbeatStep = 10;
 int curLEyeAngle = INITIAL_EYE_LR_ANGLE;
 int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
-byte headinvert = 0;
+// Head turn angles, and variables
+byte headturnincrement = 5;
+int curheadangle;
 
 // When made true anything else will stop
 bool ultimateaction = false;
@@ -236,6 +238,7 @@ bool raiseeyebrows = false;
 bool stopheart = false;
 bool iamcool = false;
 bool freeze = false;
+bool turninghead = false;
 /**** End Face expression state variables ****/
 
 // Make this false to stop random eyemovements
@@ -441,8 +444,13 @@ void buttonHandler()
 
     if(freeze == true) {
       // bbFreeze(false);
-      // freeze = true;
-      // ultimateaction = true;
+      // freeze = false;
+      // ultimateaction = false;
+    }
+
+    if(turninghead == true) {
+      turninghead = false;
+      bbNeutral();
     }
     
     if(whistle == true)
@@ -535,8 +543,9 @@ void buttonHandler()
       bbFear(true);
   } else if(button1val == 3 && button2val == 0) {
     //L3 single press
-    if(mouthopen == false)
-      bbMouthOpen(true);
+    //if(mouthopen == false)
+    //bbMouthOpen(true);
+    bbTurnHead(true);
   } else if(button2val == 1 && button1val == 0) {
     //R1 single press
     if(thinking == false)
@@ -546,8 +555,9 @@ void buttonHandler()
     bbNotSure(true);
   } else if(button2val == 3 && button1val == 0) {
     //R3 single press
-    if(whistle == false)
-      bbWhistle(true);
+    //if(whistle == false)
+    //  bbWhistle(true);
+    bbTurnHead(false);
   }
 
 }
@@ -716,6 +726,8 @@ void bbNeutral()
   eyeBrowU.write(EYEBROW_UD_INITIAL_ANGLE);
   mouthL.write(MOUTHL_NEUTRAL_ANGLE);
   mouthR.write(MOUTHR_NEUTRAL_ANGLE);
+  headLR.write(HEAD_LR_INITIAL_ANGLE);
+  curheadangle = HEAD_LR_INITIAL_ANGLE;
   stoptalking = false;
   stopblinking = false;
   stopeyes = false;
@@ -1140,6 +1152,19 @@ void bbLie(bool fstatus)
     lie = false;
     lEyeUD.write(LEYE_UD_INITIAL_ANGLE);
     rEyeUD.write(REYE_UD_INITIAL_ANGLE);
+  }
+}
+
+// When called turns the head
+void bbTurnHead(bool side)
+{
+  turninghead = true;
+  if(side == true) {
+    curheadangle = curheadangle - headturnincrement;
+    headLR.write(curheadangle);
+  } else {
+    curheadangle = curheadangle + headturnincrement;
+    headLR.write(curheadangle);
   }
 }
 

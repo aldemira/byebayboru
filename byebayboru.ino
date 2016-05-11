@@ -95,6 +95,7 @@ static byte REYE_LR_INITIAL_ANGLE = 90;
 static byte LEYE_UD_INITIAL_ANGLE = 90;
 static byte REYE_UD_INITIAL_ANGLE = 90;
 static byte EYEBROW_UD_INITIAL_ANGLE = 100;
+static byte HEAD_LR_INITIAL_ANGLE = 90;
 
 byte LEYE_LID_OPEN_ANGLE = 65;
 byte LEYE_LID_CLOSE_ANGLE = 85;
@@ -240,7 +241,7 @@ bool freeze = false;
 // Make this false to stop random eyemovements
 bool enableeyemovements = true;
 // Enable/Disable head movements
-bool enabledacccode = true;
+bool enabledacccode = false;
 
 void setup()
 {

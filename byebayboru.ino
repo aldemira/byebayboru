@@ -150,7 +150,10 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 
 /**** END Accelerometer/Gyroscope definitons ****/
 
-const int SILENT_AUDIO_VAL = 500;
+const int SILENT_AUDIO_VAL = 478;
+
+// +/- limit around silence of values to ignore
+const int IGNORE_LIMIT = 15;
 /****** End Configurable Stuff *********/
 
 void(* resetFunc) (void) = 0; //declare reset function at address 0
@@ -209,7 +212,8 @@ int curLEyeAngle = INITIAL_EYE_LR_ANGLE;
 int curREyeAngle = INITIAL_EYE_LR_ANGLE;
 
 // Head turn angles, and variables
-byte headturnincrement = 5;
+byte headturnincrement = 20;
+byte maxheadturnangle = 45;
 int curheadangle;
 
 // When made true anything else will stop
@@ -327,7 +331,7 @@ void setup()
   blinkTh.setInterval(3000);
 
   talkTh.onRun(talkCallback);
-  talkTh.setInterval(200);
+  talkTh.setInterval(25);
 
   if(enabledacccode == true) {
     moveHeadTh.onRun(moveHeadCallback);
@@ -404,7 +408,7 @@ void talkCallback()
 
 void buttonHandler()
 {
-  if(ultimateaction == true) //Bye boru's dying just return
+  if(ultimateaction == true) //Bye boru's dying, so just return
     return;
 
   int button1Aval = 0, button2Aval = 0;
@@ -414,7 +418,7 @@ void buttonHandler()
   delay(200);
   button2Aval = analogRead(BUTTON2_INPUT_PIN);
 
-  //Map analog values to buttons 1,2,3
+  // Map analog values to buttons 1,2,3
   if(button1Aval >= 150 && button1Aval <= 230)
     button1val = 1;
   else if(button1Aval >= 400 && button1Aval <= 600)
@@ -429,7 +433,7 @@ void buttonHandler()
   else if(button2Aval >= 750 && button2Aval <= 900)
     button2val = 3;
 
-  // This is gonna be ugly
+  // This is gonna be ugly!
   // These are the button combinations
   if(button1val == 0 && button2val == 0) {
     // Handle action when buttons are released
@@ -901,7 +905,7 @@ void bbFear(bool fstatus)
     stoptalking = true;
     stopblinking = true;
     heartbeatStep = heartbeatStep / 2;
-    eyeLidL.write(LEYE_LID_OPEN_ANGLE-12);
+    eyeLidL.write(LEYE_LID_OPEN_ANGLE-8);
     eyeLidR.write(REYE_LID_OPEN_ANGLE+5);
     mouthUD.write(120);
     eyeBrowL.write(125);
@@ -1158,13 +1162,21 @@ void bbLie(bool fstatus)
 // When called turns the head
 void bbTurnHead(bool side)
 {
+  Serial.print("curheadangle: ");
+  Serial.print(curheadangle);
+  Serial.print("side: ");
+  Serial.print(side);
   turninghead = true;
   if(side == true) {
-    curheadangle = curheadangle - headturnincrement;
-    headLR.write(curheadangle);
+    if(curheadangle > HEAD_LR_INITIAL_ANGLE - maxheadturnangle) {
+        curheadangle = curheadangle - headturnincrement;
+        headLR.write(curheadangle);
+    }
   } else {
-    curheadangle = curheadangle + headturnincrement;
-    headLR.write(curheadangle);
+    if(curheadangle < HEAD_LR_INITIAL_ANGLE + maxheadturnangle) {
+        curheadangle = curheadangle + headturnincrement;
+        headLR.write(curheadangle);
+    }
   }
 }
 
